@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lustlol.gg</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #121212; --nav: #1e1e1e; --box: #1a1a24; --box-hover: #222230;
+  --border: #333; --purple: #3b82f6; --purple-glow: rgba(59,130,246,0.15);
+  --text: #fff; --muted: #a0aec0; --win: #2563eb; --loss: #dc2626; --ring-bg: #2d3748;
+  --buff: #22c55e; --nerf: #ef4444; --adjust: #3b82f6;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; text-decoration: none; }
+
+body { background-color: var(--bg); color: var(--text); font-family: Sora, sans-serif; display: flex; flex-direction: column; align-items: center; padding-bottom: 64px; }
+
+#bg-video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; opacity: 0.35; z-index: 0; pointer-events: none; }
+
+nav { position: relative; z-index: 10; width: 100%; background: var(--nav); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+.logo-nav { font-weight: 800; font-size: 26px; letter-spacing: -1px; color: var(--text); display: inline-flex; transition: opacity 0.2s; }
+.logo-nav:hover { opacity: 0.85; }
+.logo-nav span { color: var(--purple); }
+.nav-right { display: flex; align-items: center; gap: 24px; font-size: 14px; color: var(--muted); }
+.lang-select { background: transparent; color: var(--text); border: none; outline: none; cursor: pointer; font-family: inherit; font-size: 14px; }
+
+.search-container { position: relative; z-index: 20; width: min(1200px, 100%); margin: 20px 32px 16px auto; padding: 0 32px; display: flex; justify-content: flex-end; }
+.search-wrapper { position: relative; width: 420px; max-width: 100%; }
+form { display: flex; width: 100%; background: var(--nav); border: 1px solid #2b5c92; border-radius: 99px; box-shadow: 0 0 15px var(--purple-glow); overflow: hidden; transition: all 0.3s ease; }
+form:focus-within { border-color: var(--purple); box-shadow: 0 0 20px rgba(59,130,246,0.3); }
+
+select, input, button { font: inherit; color: var(--text); background: transparent; border: 0; outline: 0; padding: 12px 16px; }
+select { 
+  background: #2b4266; border-radius: 99px 0 0 99px; cursor: pointer; font-weight: 600; margin: 3px; 
+  padding: 10px 8px 10px 16px; 
+  appearance: none; 
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%2210%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%23ffffff%22%3E%3Cpath%20d%3D%22M7%2010l5%205%205-5z%22%253E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+input { flex: 1; font-size: 15px; }
+input::placeholder { color: var(--muted); }
+button { cursor: pointer; display: grid; place-items: center; padding: 0 20px; }
+button svg { width: 18px; height: 18px; fill: var(--muted); transition: fill 0.2s; }
+button:hover svg { fill: var(--text); }
+
+.dropdown-hidden { display: none !important; }
+#recent-dropdown { 
+  position: absolute; top: calc(100% + 10px); left: 0; width: 100%; 
+  background: rgba(22,22,30,0.98); backdrop-filter: blur(12px); 
+  border: 1px solid var(--border); border-radius: 16px; 
+  box-shadow: 0 15px 35px rgba(0,0,0,0.7); overflow: hidden; 
+  display: flex; flex-direction: column; z-index: 50; 
+  max-height: 400px; overflow-y: auto;
+}
+.dropdown-section-title { 
+  padding: 10px 16px; font-size: 11px; font-weight: 800; color: var(--muted); 
+  text-transform: uppercase; letter-spacing: 1px; background: rgba(0,0,0,0.4); 
+  border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; 
+}
+.dropdown-item { 
+  padding: 10px 16px; display: flex; align-items: center; gap: 12px; 
+  cursor: pointer; transition: background 0.2s; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.03); 
+}
+.dropdown-item:hover { background: rgba(59,130,246,0.15); }
+.dropdown-item img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.dropdown-item .p-info { display: flex; flex-direction: column; }
+.dropdown-item b { font-size: 14px; line-height: 1.2; }
+.dropdown-item .tag { color: var(--muted); font-size: 12px; }
+.dropdown-item .server-tag { color: var(--muted); font-size: 11px; margin-left: auto; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; font-weight: 600; }
+
+#out { position: relative; z-index: 10; width: min(1200px, 100%); padding: 0 32px; margin: 0 auto; }
+.msg { color: var(--muted); text-align: center; padding: 24px; }
+
+.home-layout { display: grid; grid-template-columns: 360px 1fr; gap: 24px; margin-top: 20px; align-items: start; }
+@media (max-width: 950px) { .home-layout { grid-template-columns: 1fr; } }
+
+.patch-panel { background: rgba(26,26,36,0.9); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+.patch-header { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.patch-body { max-height: 550px; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px; }
+.patch-body::-webkit-scrollbar { width: 4px; }
+.patch-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.patch-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.patch-section-title.buff { color: var(--buff); }
+.patch-section-title.nerf { color: var(--nerf); }
+.patch-section-title.new-content { color: var(--purple); }
+
+.patch-champ-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.patch-champ-card { display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 3px 8px 3px 3px; border-radius: 99px; font-size: 11px; font-weight: 600; color: var(--text); cursor: pointer; transition: background 0.2s; }
+.patch-champ-card:hover { background: rgba(59,130,246,0.2); }
+.patch-champ-card img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+
+.patch-details-panel { background: rgba(26,26,36,0.9); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); min-height: 590px; max-height: 600px; overflow-y: auto; }
+.patch-details-panel::-webkit-scrollbar { width: 5px; }
+.patch-details-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.patch-details-header { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.patch-details-content { display: flex; flex-direction: column; gap: 12px; }
+.detail-item { background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.detail-item h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; color: var(--purple); }
+.detail-stat { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 4px; font-family: monospace; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 6px; }
+
+.profile-banner { background: linear-gradient(to right, var(--box), rgba(22,22,32,0.8)); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 16px; padding: 32px; display: flex; align-items: center; gap: 24px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.icon-wrapper { position: relative; width: 96px; height: 96px; } 
+.icon-wrapper img.p-icon { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid var(--purple); }
+.icon-wrapper .lvl { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); background: var(--bg); border: 1px solid var(--purple); border-radius: 12px; font-size: 13px; font-weight: 600; padding: 2px 12px; z-index: 3; }
+.profile-info h1 { font-size: 32px; font-weight: 800; display: flex; align-items: baseline; gap: 8px; }
+.profile-info h1 span { color: var(--muted); font-size: 20px; font-weight: 600; }
+
+.main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+@media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
+
+.rank-card { background: rgba(26,26,36,0.85); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
+.rank-crest { width: 110px; height: 110px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); }
+.rank-card-info { display: flex; flex-direction: column; justify-content: center; }
+.rank-card-info h3 { font-size: 14px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+.rank-card-info .tier { font-size: 28px; font-weight: 800; color: #b185f5; line-height: 1.1; margin-bottom: 4px; }
+.rank-card-info .lp { font-size: 15px; color: var(--muted); }
+.rank-card-info .lp b { color: var(--text); }
+
+.section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-left: 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.matches { display: grid; gap: 8px; }
+
+/* MAÇ KARTI VE İDEAL BOYUTTA İTEM / TAKIM İKONLARI */
+.match { 
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; 
+  border-radius: 12px; background: rgba(26,26,36,0.85); backdrop-filter: blur(8px); 
+  border: 1px solid var(--border); border-bottom-width: 4px; 
+  transition: transform 0.2s, background 0.2s; text-decoration: none; color: var(--text);
+}
+.match:hover { transform: translateY(-2px); background: rgba(34,34,48,0.95); }
+.match.win { border-bottom-color: var(--win); }
+.match.loss { border-bottom-color: var(--loss); }
+
+.match-left { display: flex; align-items: center; gap: 14px; min-width: 140px; }
+.match img.champ-icon { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.match-info { display: flex; flex-direction: column; gap: 2px; }
+.match-info b { font-size: 15px; line-height: 1.2; }
+.match-info b.win-text { color: var(--win); }
+.match-info b.loss-text { color: var(--loss); }
+.match-info span { color: var(--muted); font-size: 12px; }
+
+.match-stats { display: flex; flex-direction: column; align-items: center; min-width: 100px; text-align: center; }
+.match-stats .kda-text { font-size: 14px; font-weight: 700; color: var(--text); }
+.match-stats .sub-stat { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* İTEMLER 24px OLARAK BÜYÜTÜLDÜ VE TAKIM İKONLARIYLA ORANTILANDI */
+.match-items { display: grid; grid-template-columns: repeat(4, 24px); gap: 3px; align-content: center; }
+.match-items img, .match-items .item-empty { width: 24px; height: 24px; border-radius: 4px; background: rgba(255,255,255,0.05); }
+
+.match-teams { display: flex; flex-direction: column; gap: 3px; }
+.team-row { display: grid; grid-template-columns: repeat(5, 24px); gap: 3px; }
+.team-row img { width: 24px; height: 24px; border-radius: 4px; object-fit: cover; cursor: pointer; transition: transform 0.1s; }
+.team-row img:hover { transform: scale(1.15); z-index: 10; }
+
+.stats-panel { background: rgba(26,26,36,0.85); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 16px; padding: 24px; position: sticky; top: 24px; }
+.stats-panel-header { font-size: 16px; font-weight: 600; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; display: flex; gap: 16px; }
+.stats-panel-header span { color: var(--muted); cursor: pointer; }
+.stats-panel-header span.active { color: var(--text); font-weight: 800; border-bottom: 2px solid var(--purple); padding-bottom: 14px; }
+
+.circles-row { display: flex; justify-content: space-around; gap: 16px; margin-bottom: 32px; }
+.circle-wrapper { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.circle-label { font-size: 14px; color: var(--muted); font-weight: 600; }
+.progress-ring { position: relative; width: 100px; height: 100px; border-radius: 50%; display: grid; place-items: center; background: var(--ring-bg); }
+.progress-ring::before { content: ""; position: absolute; inset: 8px; background: var(--box); border-radius: 50%; }
+.progress-value { position: relative; font-size: 20px; font-weight: 800; color: var(--text); z-index: 1; }
+</style>
+</head>
+<body>
+
+<video autoplay loop muted playsinline id="bg-video" src="/moonlight.mp4"></video>
+
+<nav>
+  <a href="/" class="logo-nav">lust<span>lol</span>.gg</a>
+  <div class="nav-right">
+    <span>Leaderboards</span>
+    <span>Tierlist & Build</span>
+    <select class="lang-select"><option>English</option><option>Türkçe</option></select>
+  </div>
+</nav>
+
+<div class="search-container">
+  <div class="search-wrapper">
+    <form id="f">
+      <select id="s"><option value="euw">EUW</option><option value="tr">TR</option></select>
+      <input id="q" placeholder="GhostOfPerdition#DEATH" autocomplete="off">
+      <button aria-label="Ara">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      </button>
+    </form>
+    <div id="recent-dropdown" class="dropdown-hidden"></div>
+  </div>
+</div>
+  
+<div id="out">
+  <div class="home-layout">
+    <div class="patch-panel">
+      <div class="patch-header">
+        <span>Patch Highlights</span>
+        <span id="patch-version-tag" style="color:var(--purple); font-size:12px">v26.19</span>
+      </div>
+      <div class="patch-body">
+        <div>
+          <div class="patch-section-title buff">▲ Buffs</div>
+          <div class="patch-champ-grid" id="buffs-grid"></div>
+        </div>
+        <div>
+          <div class="patch-section-title nerf">▼ Nerfs</div>
+          <div class="patch-champ-grid" id="nerfs-grid"></div>
+        </div>
+        <div>
+          <div class="patch-section-title" style="color: var(--adjust);">⚡ Adjusted</div>
+          <div class="patch-champ-grid" id="adjusted-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="patch-details-panel">
+      <div class="patch-details-header">
+        <span>🛡️ Resmi Riot Yama Notları</span>
+      </div>
+      <div class="patch-details-content" id="scraped-details">
+        <div class="detail-item">
+          <p style="color:var(--muted)">Yama verileri yükleniyor...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let ver="14.24.1";
+
+const buffs = ["Aatrox", "Aphelios", "Aurora", "Draven", "Elise", "Fiora", "KhaZix", "Lillia", "MasterYi", "Volibear"];
+const nerfs = ["Nasus", "Nocturne", "Poppy", "Rumble", "Ryze", "Vi"];
+const adjusted = ["Lucian"];
+
+async function initVersion() {
+  try {
+    const r = await fetch("https://ddragon.leagueoflegends.com/api/versions.json");
+    const v = await r.json();
+    ver = v[0];
+    renderPatchChampions();
+    fetchScrapedPatchNotes();
+  } catch(e) {}
+}
+
+function renderPatchChampions() {
+  const getCleanName = (name) => {
+    if(name === "KhaZix") return "Khazix";
+    if(name === "MasterYi") return "MasterYi";
+    return name;
+  };
+  const createCards = (list) => {
+    return list.map(c => `
+      <div class="patch-champ-card">
+        <img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${getCleanName(c)}.png" alt="${c}" onerror="this.src='https://ddragon.leagueoflegends.com/cdn/14.24.1/img/champion/Aatrox.png'">
+        <span>${c === "KhaZix" ? "Kha'Zix" : (c === "MasterYi" ? "Master Yi" : c)}</span>
+      </div>
+    `).join("");
+  };
+  if($("buffs-grid")) $("buffs-grid").innerHTML = createCards(buffs);
+  if($("nerfs-grid")) $("nerfs-grid").innerHTML = createCards(nerfs);
+  if($("adjusted-grid")) $("adjusted-grid").innerHTML = createCards(adjusted);
+}
+
+async function fetchScrapedPatchNotes() {
+  try {
+    const res = await fetch("/api/scraped-patch");
+    const json = await res.json();
+    if(json.success && json.data.length > 0) {
+      let html = "";
+      json.data.forEach(item => {
+        html += `<div class="detail-item"><h4>🛡️ ${esc(item.champion)}</h4>`;
+        item.details.forEach(d => { html += `<div class="detail-stat">${esc(d)}</div>`; });
+        html += `</div>`;
+      });
+      $("scraped-details").innerHTML = html;
+    }
+  } catch (err) {}
+}
+
+initVersion();
+
+const dd = $("recent-dropdown");
+const qInput = $("q");
+const sSelect = $("s");
+
+function getSavedPlayers() { return JSON.parse(localStorage.getItem("lustlol_players") || "[]"); }
+function savePlayer(name, tag, server, iconId) {
+  let players = getSavedPlayers();
+  players = players.filter(p => !(p.name.toLowerCase() === name.toLowerCase() && p.tag.toLowerCase() === tag.toLowerCase() && p.server === server));
+  players.unshift({ name, tag, server, iconId });
+  if (players.length > 15) players.pop();
+  localStorage.setItem("lustlol_players", JSON.stringify(players));
+}
+
+function handleSearchInput() {
+  const query = qInput.value.trim().toLowerCase();
+  const players = getSavedPlayers();
+  if (players.length === 0) return dd.classList.add("dropdown-hidden");
+
+  let matched = players;
+  if (query.length > 0) {
+    matched = players.filter(p => p.name.toLowerCase().includes(query) || p.tag.toLowerCase().includes(query));
+  }
+  if (matched.length === 0) return dd.classList.add("dropdown-hidden");
+
+  let html = `<div class="dropdown-section-title">Players / Recent</div>`;
+  matched.slice(0, 5).forEach(p => {
+    html += `
+      <div class="dropdown-item" onclick="selectPlayer('${esc(p.name)}','${esc(p.tag)}','${p.server}')">
+        <img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/profileicon/${p.iconId}.png" alt="">
+        <div class="p-info">
+          <b>${esc(p.name)}</b>
+          <span class="tag">#${esc(p.tag)}</span>
+        </div>
+        <span class="server-tag">${p.server.toUpperCase()}</span>
+      </div>`;
+  });
+  dd.innerHTML = html;
+  dd.classList.remove("dropdown-hidden");
+}
+
+window.selectPlayer = function(name, tag, server) {
+  qInput.value = name + "#" + tag;
+  sSelect.value = server;
+  dd.classList.add("dropdown-hidden");
+  $("f").dispatchEvent(new Event("submit"));
+};
+
+window.searchPlayerByTag = function(name, tag, server) {
+  qInput.value = name + "#" + tag;
+  sSelect.value = server;
+  $("f").dispatchEvent(new Event("submit"));
+};
+
+qInput.addEventListener("focus", handleSearchInput);
+qInput.addEventListener("input", handleSearchInput);
+document.addEventListener("click", e => { if (!e.target.closest(".search-wrapper")) dd.classList.add("dropdown-hidden"); });
+
+$("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const raw = qInput.value.trim(), i = raw.lastIndexOf("#");
+  if (i < 1 || i === raw.length - 1) return $("out").innerHTML='<p class="msg" style="color:#ff4655">Format: İsim#TAG (Örn: lust#77)</p>';
+  const name = raw.slice(0, i), tag = raw.slice(i + 1), server = sSelect.value;
+  
+  dd.classList.add("dropdown-hidden");
+  $("out").innerHTML='<p class="msg">Analiz ediliyor...</p>';
+  
+  try {
+    const r = await fetch(`/api/player?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&server=${server}`);
+    const d = await r.json();
+    if (!r.ok) return $("out").innerHTML=`<p class="msg" style="color:#ff4655">Hata: Oyuncu bulunamadı veya API hatası (${r.status})</p>`;
+    savePlayer(d.name, d.tag, server, d.profileIconId);
+    render(d, server);
+  } catch { $("out").innerHTML='<p class="msg" style="color:#ff4655">Sunucu bağlantı hatası.</p>'; }
+});
+
+function render(d, server){
+  const solo = d.ranked.find(x=>x.queueType==="RANKED_SOLO_5x5");
+  
+  let rankHTML = "";
+  let totalGames = 0, winRate = 0, wrDeg = 0;
+  let borderImg = ""; 
+
+  if(solo) {
+    totalGames = solo.wins + solo.losses;
+    winRate = Math.round((solo.wins / totalGames) * 100);
+    wrDeg = Math.round((winRate / 100) * 360);
+    const high = ["MASTER","GRANDMASTER","CHALLENGER"].includes(solo.tier);
+    const tierName = solo.tier[0] + solo.tier.slice(1).toLowerCase() + (high ? "" : " " + solo.rank);
+    
+    const tierLower = solo.tier.toLowerCase();
+    if (tierLower !== "unranked") {
+      borderImg = `<img src="https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-shared-components/global/default/${tierLower}.png" class="rank-crest" alt="${tierName}">`;
+    }
+
+    rankHTML = `
+      <div class="rank-card">
+        ${borderImg}
+        <div class="rank-card-info">
+          <h3>Tekli/Çiftli</h3>
+          <div class="tier">${esc(tierName)}</div>
+          <div class="lp"><b>${solo.leaguePoints} LP</b> · ${solo.wins}W ${solo.losses}L</div>
+        </div>
+      </div>`;
+  } else {
+    rankHTML = `<div class="rank-card"><div class="rank-card-info"><h3>Tekli/Çiftli</h3><div class="tier">Derecesiz</div></div></div>`;
+  }
+
+  let mHTML = '<div class="section-title">Son Maçlar</div><div class="matches">';
+  if(d.matches && d.matches.length > 0){
+    d.matches.forEach(m => {
+      const isWin = m.win ? "win" : "loss";
+      const textClass = m.win ? "win-text" : "loss-text";
+      const kda = m.deaths === 0 ? "Perfect" : ((m.kills + m.assists) / m.deaths).toFixed(2);
+      
+      let itemsHTML = '';
+      [m.item0, m.item1, m.item2, m.item3, m.item4, m.item5, m.item6].forEach(itemId => {
+        if(itemId && itemId > 0) {
+          itemsHTML += `<img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/item/${itemId}.png" alt="item">`;
+        } else {
+          itemsHTML += `<div class="item-empty"></div>`;
+        }
+      });
+
+      let team1HTML = '';
+      if(m.team1 && m.team1.length > 0) {
+        m.team1.forEach(pObj => {
+          const tooltip = `${pObj.name} #${pObj.tag}`;
+          team1HTML += `<img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${pObj.champion}.png" title="${esc(tooltip)}" onclick="event.preventDefault(); searchPlayerByTag('${esc(pObj.name)}', '${esc(pObj.tag)}', '${server}')">`;
+        });
+      }
+
+      let team2HTML = '';
+      if(m.team2 && m.team2.length > 0) {
+        m.team2.forEach(pObj => {
+          const tooltip = `${pObj.name} #${pObj.tag}`;
+          team2HTML += `<img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${pObj.champion}.png" title="${esc(tooltip)}" onclick="event.preventDefault(); searchPlayerByTag('${esc(pObj.name)}', '${esc(pObj.tag)}', '${server}')">`;
+        });
+      }
+
+      mHTML += `
+      <a href="/match.html?id=${m.id}&server=${server}" target="_blank" class="match ${isWin}">
+        <div class="match-left">
+          <img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${m.champion}.png" class="champ-icon" alt="${m.champion}">
+          <div class="match-info">
+            <b class="${textClass}">${m.win ? "Victory" : "Defeat"}</b>
+            <span>Soloqueue</span>
+          </div>
+        </div>
+
+        <div class="match-stats">
+          <div class="kda-text">${m.kills} / ${m.deaths} / ${m.assists}</div>
+          <div class="sub-stat">${kda} KDA</div>
+        </div>
+
+        <div class="match-items">
+          ${itemsHTML}
+        </div>
+
+        <div class="match-teams">
+          <div class="team-row">${team1HTML}</div>
+          <div class="team-row">${team2HTML}</div>
+        </div>
+      </a>`;
+    });
+  } else {
+    mHTML += '<p style="color:var(--muted)">Yakın zamanda oynanmış maç bulunamadı.</p>';
+  }
+  mHTML += '</div>';
+
+  $("out").innerHTML = `
+    <div class="profile-banner">
+      <div class="icon-wrapper">
+        <img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/profileicon/${d.profileIconId}.png" class="p-icon">
+        <span class="lvl">${d.level}</span>
+      </div>
+      <div class="profile-info">
+        <h1>${esc(d.name)} <span>#${esc(d.tag)}</span></h1>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="left-col">
+        ${rankHTML}
+        ${mHTML}
+      </div>
+      
+      <div class="right-col">
+        <div class="stats-panel">
+          <div class="stats-panel-header">
+            <span class="active">Soloqueue</span>
+            <span>Flex</span>
+            <span>Arena</span>
+          </div>
+          <div class="circles-row">
+            <div class="circle-wrapper">
+              <div class="progress-ring" style="background: conic-gradient(#4a5568 360deg, var(--ring-bg) 0);">
+                <div class="progress-value">${totalGames}</div>
+              </div>
+              <div class="circle-label">Played</div>
+            </div>
+            <div class="circle-wrapper">
+              <div class="progress-ring" style="background: conic-gradient(var(--purple) ${wrDeg}deg, var(--ring-bg) 0);">
+                <div class="progress-value">${winRate}%</div>
+              </div>
+              <div class="circle-label">Winrate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
