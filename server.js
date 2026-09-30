@@ -33,6 +33,35 @@ const QUEUE_MAP = {
   450: "ARAM", 490: "Hızlı Oyun", 700: "Clash", 900: "URF", 1700: "Arena"
 };
 
+// Geçerli League of Legends şampiyonlarından bazıları (veya metin filtresi için kural)
+const VALID_CHAMPIONS = [
+  "Aatrox", "Ahri", "Akali", "Akshan", "Alistar", "Ambessa", "Amumu", "Anivia", "Annie", "Aphelios", "Ashe", "Aurelion Sol", "Aurora", "Azir",
+  "Bard", "Bel'Veth", "Blitzcrank", "Brand", "Braum", "Briar",
+  "Caitlyn", "Camille", "Cassiopeia", "Cho'Gath", "Corki",
+  "Darius", "Diana", "Dr. Mundo", "Draven",
+  "Ekko", "Elise", "Evelynn", "Ezreal",
+  "Fiddlesticks", "Fiora", "Fizz",
+  "Galio", "Gangplank", "Garen", "Gnar", "Gragas", "Gwen",
+  "Hecarim", "Heimerdinger", "Hwei",
+  "Illaoi", "Irelia", "Ivern",
+  "Janna", "Jarvan IV", "Jax", "Jayce", "Jhin", "Jinx", "K'Sante",
+  "Kai'Sa", "Kalista", "Karma", "Karthus", "Kassadin", "Katarina", "Kayle", "Kayn", "Kennen", "Kha'Zix", "Kindred", "Kled", "Kog'Maw",
+  "LeBlanc", "Lee Sin", "Leona", "Lillia", "Lissandra", "Lucian", "Lulu", "Lux",
+  "Malphite", "Malzahar", "Maokai", "Master Yi", "Milio", "Miss Fortune", "Wukong", "Mordekaiser", "Morgana",
+  "Naafiri", "Nami", "Nasus", "Nautilus", "Neeko", "Nidalee", "Nilah", "Nocturne", "Nunu & Willump",
+  "Olaf", "Orianna", "Ornn",
+  "Pantheon", "Poppy", "Pyke",
+  "Qiyana", "Quinn",
+  "Rakan", "Rammus", "Rek'Sai", "Rell", "Renata Glasc", "Renekton", "Rengar", "Riven", "Rumble", "Ryze",
+  "Samira", "Sejuani", "Senna", "Seraphine", "Sett", "Shaco", "Shen", "Shyvana", "Singed", "Sion", "Sivir", "Skarner", "Smolder", "Sona", "Soraka", "Swain", "Sylas", "Syndra",
+  "Tahm Kench", "Taliyah", "Talon", "Taric", "Teemo", "Thresh", "Tristana", "Trundle", "Tryndamere", "Twisted Fate", "Twitch",
+  "Udyr", "Urgot",
+  "Varus", "Vayne", "Veigar", "Vel'Koz", "Vex", "Vi", "Viego", "Viktor", "Vladimir", "Volibear",
+  "Warwick",
+  "Xayah", "Xerath", "Xin Zhao", "Yasuo", "Yone", "Yorick", "Yuami", "Yuumi",
+  "Zac", "Zed", "Zeri", "Ziggs", "Zilean", "Zoe", "Zyra"
+];
+
 async function riot(url) {
   const res = await fetch(url, { headers: { "X-Riot-Token": KEY } });
   if (!res.ok) {
@@ -182,18 +211,23 @@ app.get("/api/scraped-patch", async (req, res) => {
       else if (lowerText.includes("nerf")) currentCategory = "Nerfs";
       else if (lowerText.includes("adjust") || lowerText.includes("system")) currentCategory = "Adjusted";
 
-      if (text.length > 2 && text.length < 20 && !lowerText.includes("patch") && !lowerText.includes("notes") && !lowerText.includes("buff") && !lowerText.includes("nerf")) {
+      // Yalnızca geçerli şampiyon listesinde yer alan isimleri kabul et
+      const matchedChampion = VALID_CHAMPIONS.find(c => c.toLowerCase() === text.toLowerCase());
+
+      if (matchedChampion) {
         let details = [];
         let nextEl = $(el).next();
         let count = 0;
-        while(nextEl.length && !["h2", "h3", "h1", "h4"].includes(nextEl[0].tagName) && count < 4) {
+        while(nextEl.length && !["h2", "h3", "h1", "h4"].includes(nextEl[0].tagName) && count < 3) {
           const content = nextEl.text().trim();
           if(content) details.push(content);
           nextEl = nextEl.next();
           count++;
         }
-        if (details.length > 0) {
-          patchData.push({ champion: text, category: currentCategory, details });
+        
+        // Aynı şampiyonu listeye mükerrer eklememek için kontrol
+        if (!patchData.some(p => p.champion.toLowerCase() === matchedChampion.toLowerCase())) {
+          patchData.push({ champion: matchedChampion, category: currentCategory, details });
         }
       }
     });
