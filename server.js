@@ -1,10 +1,31 @@
 require("dotenv").config();
 const express = require("express");
 const cheerio = require("cheerio");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 app.use(express.static("public"));
 const KEY = process.env.RIOT_API_KEY;
+
+// Maç detaylarını kalıcı olarak saklamak için basit bir cache dosyası yolu
+const CACHE_FILE = path.join(__dirname, "match_cache.json");
+let matchCache = {};
+
+// Sunucu başlarken daha önceden kaydedilmiş maç cache'ini yükle
+if (fs.existsSync(CACHE_FILE)) {
+  try {
+    matchCache = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+  } catch (e) {
+    matchCache = {};
+  }
+}
+
+function saveCache() {
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(matchCache), "utf8");
+  } catch (e) {}
+}
 
 const SERVERS = {
   euw: { platform: "euw1", region: "europe" },
@@ -54,7 +75,22 @@ app.get("/api/player", async (req, res) => {
       const sliceIds = matchIds.slice(parseInt(start), parseInt(start) + parseInt(count));
 
       for (const matchId of sliceIds) {
-        const matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
+        let matchData;
+        
+        // Önce cache'e bakıyoruz, varsa oradan alıyoruz (Hızlı ve Riot'u yormaz)
+        if (matchCache[matchId]) {
+          matchData = matchCache[matchId];
+        } else {
+          // Yoksa Riot API'den çekip cache'e kaydediyoruz
+          try {
+            matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
+            matchCache[matchId] = matchData;
+            saveCache();
+          } catch (err) {
+            continue; // Eski veya silinmiş maçsa atla
+          }
+        }
+
         const participants = matchData.info.participants;
         const p = participants.find(part => part.puuid === account.puuid);
         
@@ -89,12 +125,17 @@ app.get("/api/player", async (req, res) => {
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
+// Maç detay rotası (Önce cache kontrolü yapar, yoksa çoklu bölge tarar ve cache'e kaydeder)
 app.get("/api/match", async (req, res) => {
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: "Eksik parametre" });
 
+  // 1. Önce lokal cache'de var mı diye bak (Eğer daha önce görüntülendiyse Riot silse bile buradan döner)
+  if (matchCache[id]) {
+    return res.json(matchCache[id]);
+  }
+
   try {
-    // Maç ID önezine göre bölge tahmini yap (Örn: TR1_, EUW1_ -> europe)
     let regions = ["europe", "americas", "asia", "sea"];
     if (id.startsWith("TR1_") || id.startsWith("EUW1_") || id.startsWith("EUN1_")) {
       regions = ["europe", "americas", "asia", "sea"];
@@ -120,6 +161,10 @@ app.get("/api/match", async (req, res) => {
     if (!matchData) {
       return res.status(404).json({ error: "Maç bulunamadı." });
     }
+
+    // Başarıyla bulundu, hemen cache'e kaydedip diske yazalım
+    matchCache[id] = matchData;
+    saveCache();
 
     res.json(matchData);
   } catch (e) {
