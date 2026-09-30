@@ -56,14 +56,12 @@ app.get("/api/player", async (req, res) => {
     let matches = [];
     let totalAvailable = 0;
     try {
-      // Riot'tan kullanıcının geniş maç geçmişi listesini çekiyoruz
       const matchIdsUrl = `https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?start=0&count=100`;
       const matchIds = await riot(matchIdsUrl);
 
       if (matchIds && Array.isArray(matchIds)) {
         totalAvailable = matchIds.length;
         
-        // Frontend'den gelen start ve count değerlerine göre dilimleme
         const startIndex = parseInt(start) || 0;
         const itemCount = parseInt(count) || 20;
         const sliceIds = matchIds.slice(startIndex, startIndex + itemCount);
@@ -174,19 +172,29 @@ app.get("/api/scraped-patch", async (req, res) => {
     const $ = cheerio.load(html);
 
     let patchData = [];
-    $("h2, h3").each((i, el) => {
-      const title = $(el).text().trim();
-      if (title.length > 2 && title.length < 20 && !title.includes("Patch") && !title.includes("Notes")) {
+    let currentCategory = "Adjusted";
+
+    $("h2, h3, h4").each((i, el) => {
+      const text = $(el).text().trim();
+      const lowerText = text.toLowerCase();
+
+      if (lowerText.includes("buff")) currentCategory = "Buffs";
+      else if (lowerText.includes("nerf")) currentCategory = "Nerfs";
+      else if (lowerText.includes("adjust") || lowerText.includes("system")) currentCategory = "Adjusted";
+
+      if (text.length > 2 && text.length < 20 && !lowerText.includes("patch") && !lowerText.includes("notes") && !lowerText.includes("buff") && !lowerText.includes("nerf")) {
         let details = [];
         let nextEl = $(el).next();
         let count = 0;
-        while(nextEl.length && !["h2", "h3", "h1"].includes(nextEl[0].tagName) && count < 5) {
-          const text = nextEl.text().trim();
-          if(text) details.push(text);
+        while(nextEl.length && !["h2", "h3", "h1", "h4"].includes(nextEl[0].tagName) && count < 4) {
+          const content = nextEl.text().trim();
+          if(content) details.push(content);
           nextEl = nextEl.next();
           count++;
         }
-        if (details.length > 0) patchData.push({ champion: title, details });
+        if (details.length > 0) {
+          patchData.push({ champion: text, category: currentCategory, details });
+        }
       }
     });
 
@@ -200,7 +208,6 @@ app.get("/summoner/:server/:riotId", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
 
-// Veritabanı bağlantısı kurulduktan sonra sunucuyu başlat
 mongoose.connect(process.env.MONGO_URI, {
   serverSelectionTimeoutMS: 60000,
   socketTimeoutMS: 60000,
