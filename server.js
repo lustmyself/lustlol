@@ -12,7 +12,6 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Atlas bağlantısı başarılı!"))
   .catch(err => console.error("MongoDB bağlantı hatası:", err));
 
-// Maç Verisi İçin Şema (Schema)
 const matchSchema = new mongoose.Schema({
   matchId: { type: String, unique: true, index: true },
   data: Object,
@@ -41,7 +40,7 @@ const QUEUE_MAP = {
 async function riot(url) {
   const res = await fetch(url, { headers: { "X-Riot-Token": KEY } });
   if (!res.ok) {
-    const err = new Error(`Riot API hatası: ${res.status}`);
+    const err = new Error(`Riot API hatası: ${res.status} (${url})`);
     err.status = res.status;
     throw err;
   }
@@ -61,58 +60,66 @@ app.get("/api/player", async (req, res) => {
     let matches = [];
     let totalAvailable = 0;
     try {
-      const matchIds = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?start=0&count=100`);
+      const matchIdsUrl = `https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?start=0&count=20`;
+      console.log("Maç ID'leri isteniyor:", matchIdsUrl);
       
-      totalAvailable = matchIds.length;
-      const sliceIds = matchIds.slice(parseInt(start), parseInt(start) + parseInt(count));
+      const matchIds = await riot(matchIdsUrl);
+      console.log("Gelen maç ID sayısı:", matchIds ? matchIds.length : 0);
 
-      for (const matchId of sliceIds) {
-        let matchData;
-        
-        const cachedMatch = await MatchModel.findOne({ matchId });
-        if (cachedMatch) {
-          matchData = cachedMatch.data;
-        } else {
-          try {
-            matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
-            await MatchModel.create({ matchId, data: matchData });
-          } catch (err) {
-            continue;
+      if (matchIds && Array.isArray(matchIds)) {
+        totalAvailable = matchIds.length;
+        const sliceIds = matchIds.slice(parseInt(start), parseInt(start) + parseInt(count));
+
+        for (const matchId of sliceIds) {
+          let matchData;
+          const cachedMatch = await MatchModel.findOne({ matchId });
+          if (cachedMatch) {
+            matchData = cachedMatch.data;
+          } else {
+            try {
+              matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
+              await MatchModel.create({ matchId, data: matchData });
+            } catch (err) {
+              console.error(`Maç verisi çekilemedi (${matchId}):`, err.message);
+              continue;
+            }
+          }
+
+          if (matchData && matchData.info && matchData.info.participants) {
+            const participants = matchData.info.participants;
+            const p = participants.find(part => part.puuid === account.puuid);
+            
+            if (p) {
+              const formatTeam = (teamList) => teamList.map(part => ({
+                champion: part.championName,
+                name: part.riotIdGameName || part.summonerName || "Bilinmiyor",
+                tag: part.riotIdTagline || server.toUpperCase()
+              }));
+
+              matches.push({
+                id: matchId,
+                win: p.win,
+                champion: p.championName,
+                kills: p.kills, deaths: p.deaths, assists: p.assists,
+                mode: QUEUE_MAP[matchData.info.queueId] || matchData.info.gameMode,
+                item0: p.item0, item1: p.item1, item2: p.item2,
+                item3: p.item3, item4: p.item4, item5: p.item5, item6: p.item6,
+                team1: formatTeam(participants.filter(part => part.teamId === 100)),
+                team2: formatTeam(participants.filter(part => part.teamId === 200))
+              });
+            }
           }
         }
-
-        const participants = matchData.info.participants;
-        const p = participants.find(part => part.puuid === account.puuid);
-        
-        if (p) {
-          const formatTeam = (teamList) => teamList.map(part => ({
-            champion: part.championName,
-            name: part.riotIdGameName || part.summonerName || "Bilinmiyor",
-            tag: part.riotIdTagline || server.toUpperCase()
-          }));
-
-          const team1 = formatTeam(participants.filter(part => part.teamId === 100));
-          const team2 = formatTeam(participants.filter(part => part.teamId === 200));
-
-          matches.push({
-            id: matchId,
-            win: p.win,
-            champion: p.championName,
-            kills: p.kills, 
-            deaths: p.deaths, 
-            assists: p.assists,
-            mode: QUEUE_MAP[matchData.info.queueId] || matchData.info.gameMode,
-            item0: p.item0, item1: p.item1, item2: p.item2,
-            item3: p.item3, item4: p.item4, item5: p.item5, item6: p.item6,
-            team1: team1,
-            team2: team2
-          });
-        }
       }
-    } catch (mErr) {}
+    } catch (mErr) {
+      console.error("Match ID listesi çekilirken hata:", mErr.message);
+    }
 
     res.json({ name: account.gameName, tag: account.tagLine, level: summoner.summonerLevel, profileIconId: summoner.profileIconId, ranked, matches, totalAvailable });
-  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+  } catch (e) { 
+    console.error("Player API Hatası:", e.message);
+    res.status(e.status || 500).json({ error: e.message }); 
+  }
 });
 
 app.get("/api/match", async (req, res) => {
@@ -120,9 +127,7 @@ app.get("/api/match", async (req, res) => {
   if (!id) return res.status(400).json({ error: "Eksik parametre" });
 
   const cachedMatch = await MatchModel.findOne({ matchId: id });
-  if (cachedMatch) {
-    return res.json(cachedMatch.data);
-  }
+  if (cachedMatch) return res.json(cachedMatch.data);
 
   try {
     let regions = ["europe", "americas", "asia", "sea"];
@@ -139,10 +144,7 @@ app.get("/api/match", async (req, res) => {
       } catch (err) {}
     }
 
-    if (!matchData) {
-      return res.status(404).json({ error: "Maç bulunamadı." });
-    }
-
+    if (!matchData) return res.status(404).json({ error: "Maç bulunamadı." });
     await MatchModel.create({ matchId: id, data: matchData });
     res.json(matchData);
   } catch (e) {
@@ -156,7 +158,7 @@ app.get("/api/scraped-patch", async (req, res) => {
     const mainHtml = await mainRes.text();
     const $main = cheerio.load(mainHtml);
     
-    let patchUrl = "";
+    let patchUrl = "https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-19-notes/";
     let patchVersion = "26.19";
 
     $main("a").each((i, el) => {
@@ -168,8 +170,6 @@ app.get("/api/scraped-patch", async (req, res) => {
         return false;
       }
     });
-
-    if (!patchUrl) patchUrl = "https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-19-notes/";
 
     const response = await fetch(patchUrl);
     const html = await response.text();
