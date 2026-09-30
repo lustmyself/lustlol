@@ -91,26 +91,55 @@ app.get("/api/match", async (req, res) => {
 
 app.get("/api/scraped-patch", async (req, res) => {
   try {
-    const response = await fetch("https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-19-notes/");
+    // Son yama notları sayfasını dinamik çekebilmek için ana haber akışından güncel yama linkini buluyoruz
+    const mainRes = await fetch("https://www.leagueoflegends.com/en-us/news/game-updates/");
+    const mainHtml = await mainRes.text();
+    const $main = cheerio.load(mainHtml);
+    
+    let patchUrl = "";
+    let patchVersion = "26.19"; // Varsayılan
+
+    $main("a").each((i, el) => {
+      const href = $main(el).attr("href") || "";
+      if (href.includes("league-of-legends-patch-")) {
+        patchUrl = href.startsWith("http") ? href : `https://www.leagueoflegends.com${href}`;
+        const match = href.match(/patch-(\d+-\d+)/);
+        if (match) {
+          patchVersion = match[1].replace("-", ".");
+        }
+        return false; // ilk bulduğunu al (en güncel yama)
+      }
+    });
+
+    if (!patchUrl) {
+      patchUrl = "https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-19-notes/";
+    }
+
+    const response = await fetch(patchUrl);
     const html = await response.text();
     const $ = cheerio.load(html);
 
     let patchData = [];
     $("h2, h3").each((i, el) => {
       const title = $(el).text().trim();
-      if (["Aatrox", "Aphelios", "Aurora", "Draven", "Elise", "Fiora", "Kha'Zix", "Lillia", "Master Yi", "Volibear", "Nasus", "Nocturne", "Poppy", "Rumble", "Ryze", "Vi", "Lucian"].includes(title)) {
+      // Çok kısa veya başlık dışı metinleri elemek için uzunluk kontrolü ekleyebiliriz
+      if (title.length > 2 && title.length < 20 && !title.includes("Patch") && !title.includes("Notes")) {
         let details = [];
         let nextEl = $(el).next();
-        while(nextEl.length && !["h2", "h3", "h1"].includes(nextEl[0].tagName)) {
+        let count = 0;
+        while(nextEl.length && !["h2", "h3", "h1"].includes(nextEl[0].tagName) && count < 5) {
           const text = nextEl.text().trim();
           if(text) details.push(text);
           nextEl = nextEl.next();
+          count++;
         }
-        patchData.push({ champion: title, details });
+        if (details.length > 0) {
+          patchData.push({ champion: title, details });
+        }
       }
     });
 
-    res.json({ success: true, count: patchData.length, data: patchData });
+    res.json({ success: true, patchVersion, count: patchData.length, data: patchData });
   } catch (e) {
     res.status(500).json({ error: "Scraping hatası" });
   }
