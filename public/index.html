@@ -74,7 +74,6 @@ button:hover svg { fill: var(--text); }
 .dropdown-item .tag { color: var(--muted); font-size: 12px; }
 .dropdown-item .server-tag { color: var(--muted); font-size: 11px; margin-left: auto; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; font-weight: 600; }
 
-/* #out genişletildi ve tam ekran sol tarafa hizalandı */
 #out { position: relative; z-index: 10; width: 100%; padding: 0 32px; margin: 0; }
 .msg { color: var(--muted); text-align: center; padding: 24px; }
 
@@ -117,15 +116,21 @@ button:hover svg { fill: var(--text); }
 .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-left: 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 .matches { display: grid; gap: 8px; }
 
+/* Maç kartları: Alt çizgiler kaldırıldı, sol tarafa ince renkli şerit eklendi */
 .match { 
   display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; 
   border-radius: 12px; background: rgba(26,26,36,0.85); backdrop-filter: blur(8px); 
-  border: 1px solid var(--border); border-bottom-width: 4px; 
+  border: 1px solid var(--border); 
+  position: relative; overflow: hidden;
   transition: transform 0.2s, background 0.2s; text-decoration: none; color: var(--text);
 }
 .match:hover { transform: translateY(-2px); background: rgba(34,34,48,0.95); }
-.match.win { border-bottom-color: var(--win); }
-.match.loss { border-bottom-color: var(--loss); }
+
+.match::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+}
+.match.win::before { background-color: var(--win); }
+.match.loss::before { background-color: var(--loss); }
 
 .match-left { display: flex; align-items: center; gap: 14px; min-width: 140px; }
 .match img.champ-icon { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
@@ -548,13 +553,13 @@ function render(d, server){
           </div>
           <div class="circles-row">
             <div class="circle-wrapper">
-              <div class="progress-ring" style="background: conic-gradient(#4a5568 360deg, var(--ring-bg) 0);">
+              <div class="progress-ring" style="background: conic-gradient(#3b82f6 360deg, var(--ring-bg) 0);">
                 <div class="progress-value">${totalGames}</div>
               </div>
               <div class="circle-label">${t("played")}</div>
             </div>
             <div class="circle-wrapper">
-              <div class="progress-ring" style="background: conic-gradient(var(--purple) ${wrDeg}deg, var(--ring-bg) 0);">
+              <div class="progress-ring" style="background: conic-gradient(#22c55e ${wrDeg}deg, var(--ring-bg) 0);">
                 <div class="progress-value">${winRate}%</div>
               </div>
               <div class="circle-label">${t("winrate")}</div>
