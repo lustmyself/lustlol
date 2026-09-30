@@ -33,7 +33,6 @@ const QUEUE_MAP = {
   450: "ARAM", 490: "Hızlı Oyun", 700: "Clash", 900: "URF", 1700: "Arena"
 };
 
-// Geçerli League of Legends şampiyonlarından bazıları (veya metin filtresi için kural)
 const VALID_CHAMPIONS = [
   "Aatrox", "Ahri", "Akali", "Akshan", "Alistar", "Ambessa", "Amumu", "Anivia", "Annie", "Aphelios", "Ashe", "Aurelion Sol", "Aurora", "Azir",
   "Bard", "Bel'Veth", "Blitzcrank", "Brand", "Braum", "Briar",
@@ -207,11 +206,17 @@ app.get("/api/scraped-patch", async (req, res) => {
       const text = $(el).text().trim();
       const lowerText = text.toLowerCase();
 
-      if (lowerText.includes("buff")) currentCategory = "Buffs";
-      else if (lowerText.includes("nerf")) currentCategory = "Nerfs";
-      else if (lowerText.includes("adjust") || lowerText.includes("system")) currentCategory = "Adjusted";
+      if (lowerText.includes("buff") && !lowerText.includes("champion")) {
+        currentCategory = "Buffs";
+        return;
+      } else if (lowerText.includes("nerf") && !lowerText.includes("champion")) {
+        currentCategory = "Nerfs";
+        return;
+      } else if (lowerText.includes("adjust") || lowerText.includes("system")) {
+        currentCategory = "Adjusted";
+        return;
+      }
 
-      // Yalnızca geçerli şampiyon listesinde yer alan isimleri kabul et
       const matchedChampion = VALID_CHAMPIONS.find(c => c.toLowerCase() === text.toLowerCase());
 
       if (matchedChampion) {
@@ -224,8 +229,7 @@ app.get("/api/scraped-patch", async (req, res) => {
           nextEl = nextEl.next();
           count++;
         }
-        
-        // Aynı şampiyonu listeye mükerrer eklememek için kontrol
+
         if (!patchData.some(p => p.champion.toLowerCase() === matchedChampion.toLowerCase())) {
           patchData.push({ champion: matchedChampion, category: currentCategory, details });
         }
