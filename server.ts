@@ -333,7 +333,7 @@ app.get('/api/player', async (req: Request, res: Response) => {
       const sliceIds = matchIds.slice(startIndex, startIndex + countIndex);
 
       const results: (any | null)[] = new Array(sliceIds.length).fill(null);
-      const BATCH_SIZE = 4;
+      const BATCH_SIZE = 12;
       for (let i = 0; i < sliceIds.length; i += BATCH_SIZE) {
         const batch = sliceIds.slice(i, i + BATCH_SIZE);
         await Promise.all(
