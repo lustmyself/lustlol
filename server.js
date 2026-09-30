@@ -89,16 +89,34 @@ app.get("/api/player", async (req, res) => {
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
+// Maç ID hangi bölgede olursa olsun otomatik tarayıp bulan akıllı rota
 app.get("/api/match", async (req, res) => {
-  const { id, server = "euw" } = req.query;
-  const s = SERVERS[server];
-  if (!id || !s) return res.status(400).json({ error: "Eksik parametre" });
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: "Eksik parametre" });
 
   try {
-    const matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${id}`);
+    const regions = ["europe", "americas", "asia", "sea"];
+    let matchData = null;
+
+    for (const reg of regions) {
+      try {
+        const resData = await fetch(`https://${reg}.api.riotgames.com/lol/match/v5/matches/${id}`, {
+          headers: { "X-Riot-Token": KEY }
+        });
+        if (resData.ok) {
+          matchData = await resData.json();
+          break;
+        }
+      } catch (err) {}
+    }
+
+    if (!matchData) {
+      return res.status(404).json({ error: "Maç hiçbir bölgede bulunamadı." });
+    }
+
     res.json(matchData);
   } catch (e) { 
-    res.status(e.status || 500).json({ error: "Maç bulunamadı veya Riot API sınırı aşıldı." }); 
+    res.status(500).json({ error: "Maç bulunamadı veya Riot API sınırı aşıldı." }); 
   }
 });
 
