@@ -354,13 +354,13 @@ window.selectPlayer = function(name, tag, server) {
   qInput.value = name + "#" + tag;
   sSelect.value = server;
   dd.classList.add("dropdown-hidden");
-  $("f").dispatchEvent(new Event("submit"));
+  executeSearch(name, tag, server);
 };
 
 window.searchPlayerByTag = function(name, tag, server) {
   qInput.value = name + "#" + tag;
   sSelect.value = server;
-  $("f").dispatchEvent(new Event("submit"));
+  executeSearch(name, tag, server);
 };
 
 qInput.addEventListener("focus", handleSearchInput);
@@ -376,10 +376,19 @@ $("f").addEventListener("submit", async e => {
   const raw = qInput.value.trim(), i = raw.lastIndexOf("#");
   if (i < 1 || i === raw.length - 1) return $("out").innerHTML=`<p class="msg" style="color:#ff4655">${t("format_error")}</p>`;
   const name = raw.slice(0, i), tag = raw.slice(i + 1), server = sSelect.value;
-  
+  executeSearch(name, tag, server);
+});
+
+async function executeSearch(name, tag, server) {
   dd.classList.add("dropdown-hidden");
   $("out").innerHTML=`<p class="msg">${t("analyzing")}</p>`;
   
+  // URL'yi dinamik olarak değiştir (OP.GG / League of Graphs tarzı)
+  const cleanName = name.trim().replace(/\s+/g, '-');
+  const cleanTag = tag.trim();
+  const newUrl = `/summoner/${server}/${encodeURIComponent(cleanName)}-${encodeURIComponent(cleanTag)}`;
+  window.history.pushState({ path: newUrl }, '', newUrl);
+
   try {
     loadedMatchCount = 20;
     const r = await fetch(`/api/player?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&server=${server}&start=0&count=${loadedMatchCount}`);
@@ -392,7 +401,7 @@ $("f").addEventListener("submit", async e => {
     window.lastPlayerServer = server;
     render(d, server, false);
   } catch { $("out").innerHTML=`<p class="msg" style="color:#ff4655">${t("server_error")}</p>`; }
-});
+}
 
 window.loadMoreMatches = async function() {
   if (!currentPlayer) return;
@@ -542,6 +551,26 @@ function render(d, server, appendOnly){
     </div>
   `;
 }
+
+// Sayfa Doğrudan URL ile Açıldığında (F5 veya Paylaşılan Link) Otomatik Çalışma
+window.addEventListener("DOMContentLoaded", () => {
+  const pathParts = window.location.pathname.split("/");
+  if (pathParts[1] === "summoner" && pathParts[2] && pathParts[3]) {
+    const server = pathParts[2];
+    const riotIdDecoded = decodeURIComponent(pathParts[3]);
+    
+    const lastDashIndex = riotIdDecoded.lastIndexOf("-");
+    if (lastDashIndex !== -1) {
+      const name = riotIdDecoded.substring(0, lastDashIndex).replace(/-/g, ' ');
+      const tag = riotIdDecoded.substring(lastDashIndex + 1);
+
+      // Input alanlarını doldur ve verileri otomatik çek
+      sSelect.value = server;
+      qInput.value = `${name}#${tag}`;
+      executeSearch(name, tag, server);
+    }
+  }
+});
 </script>
 </body>
 </html>

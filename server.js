@@ -1,31 +1,24 @@
 require("dotenv").config();
 const express = require("express");
 const cheerio = require("cheerio");
-const fs = require("fs");
-const path = require("path");
+const mongoose = require("mongoose");
 
 const app = express();
 app.use(express.static("public"));
 const KEY = process.env.RIOT_API_KEY;
 
-// Maç detaylarını kalıcı olarak saklamak için basit bir cache dosyası yolu
-const CACHE_FILE = path.join(__dirname, "match_cache.json");
-let matchCache = {};
+// MongoDB Bağlantısı ve Konsol Çıktısı
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Atlas bağlantısı başarılı!"))
+  .catch(err => console.error("MongoDB bağlantı hatası:", err));
 
-// Sunucu başlarken daha önceden kaydedilmiş maç cache'ini yükle
-if (fs.existsSync(CACHE_FILE)) {
-  try {
-    matchCache = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
-  } catch (e) {
-    matchCache = {};
-  }
-}
-
-function saveCache() {
-  try {
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(matchCache), "utf8");
-  } catch (e) {}
-}
+// Maç Verisi İçin Şema (Schema)
+const matchSchema = new mongoose.Schema({
+  matchId: { type: String, unique: true, index: true },
+  data: Object,
+  createdAt: { type: Date, default: Date.now }
+});
+const MatchModel = mongoose.model("Match", matchSchema);
 
 const SERVERS = {
   euw: { platform: "euw1", region: "europe" },
@@ -77,17 +70,17 @@ app.get("/api/player", async (req, res) => {
       for (const matchId of sliceIds) {
         let matchData;
         
-        // Önce cache'e bakıyoruz, varsa oradan alıyoruz (Hızlı ve Riot'u yormaz)
-        if (matchCache[matchId]) {
-          matchData = matchCache[matchId];
+        // Önce MongoDB'ye bak
+        const cachedMatch = await MatchModel.findOne({ matchId });
+        if (cachedMatch) {
+          matchData = cachedMatch.data;
         } else {
-          // Yoksa Riot API'den çekip cache'e kaydediyoruz
+          // Yoksa Riot'tan çek ve MongoDB'ye kaydet
           try {
             matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
-            matchCache[matchId] = matchData;
-            saveCache();
+            await MatchModel.create({ matchId, data: matchData });
           } catch (err) {
-            continue; // Eski veya silinmiş maçsa atla
+            continue;
           }
         }
 
@@ -125,14 +118,14 @@ app.get("/api/player", async (req, res) => {
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
-// Maç detay rotası (Önce cache kontrolü yapar, yoksa çoklu bölge tarar ve cache'e kaydeder)
 app.get("/api/match", async (req, res) => {
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: "Eksik parametre" });
 
-  // 1. Önce lokal cache'de var mı diye bak (Eğer daha önce görüntülendiyse Riot silse bile buradan döner)
-  if (matchCache[id]) {
-    return res.json(matchCache[id]);
+  // 1. Önce MongoDB veritabanında ara
+  const cachedMatch = await MatchModel.findOne({ matchId: id });
+  if (cachedMatch) {
+    return res.json(cachedMatch.data);
   }
 
   try {
@@ -162,9 +155,8 @@ app.get("/api/match", async (req, res) => {
       return res.status(404).json({ error: "Maç bulunamadı." });
     }
 
-    // Başarıyla bulundu, hemen cache'e kaydedip diske yazalım
-    matchCache[id] = matchData;
-    saveCache();
+    // Başarıyla bulundu, MongoDB'ye kaydet
+    await MatchModel.create({ matchId: id, data: matchData });
 
     res.json(matchData);
   } catch (e) {
@@ -218,6 +210,11 @@ app.get("/api/scraped-patch", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: "Scraping hatası" });
   }
+});
+
+// Doğrudan URL ile profil sayfalarının yenilendiğinde (F5) açılabilmesi için gerekli rota:
+app.get("/summoner/:server/:riotId", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
 });
 
 app.listen(3000, () => console.log("Sunucu çalışıyor: http://localhost:3000"));
