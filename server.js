@@ -61,7 +61,6 @@ app.get("/api/player", async (req, res) => {
     let matches = [];
     let totalAvailable = 0;
     try {
-      // startTime filtresi kaldırıldı, doğrudan en güncel maç ID'leri çekiliyor
       const matchIds = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?start=0&count=100`);
       
       totalAvailable = matchIds.length;
@@ -70,12 +69,10 @@ app.get("/api/player", async (req, res) => {
       for (const matchId of sliceIds) {
         let matchData;
         
-        // Önce MongoDB'ye bak
         const cachedMatch = await MatchModel.findOne({ matchId });
         if (cachedMatch) {
           matchData = cachedMatch.data;
         } else {
-          // Yoksa Riot'tan çek ve MongoDB'ye kaydet
           try {
             matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
             await MatchModel.create({ matchId, data: matchData });
@@ -129,14 +126,6 @@ app.get("/api/match", async (req, res) => {
 
   try {
     let regions = ["europe", "americas", "asia", "sea"];
-    if (id.startsWith("TR1_") || id.startsWith("EUW1_") || id.startsWith("EUN1_")) {
-      regions = ["europe", "americas", "asia", "sea"];
-    } else if (id.startsWith("NA1_") || id.startsWith("BR1_")) {
-      regions = ["americas", "europe", "asia", "sea"];
-    } else if (id.startsWith("KR_") || id.startsWith("JP1_")) {
-      regions = ["asia", "europe", "americas", "sea"];
-    }
-
     let matchData = null;
     for (const reg of regions) {
       try {
