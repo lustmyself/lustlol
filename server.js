@@ -9,6 +9,14 @@ const KEY = process.env.RIOT_API_KEY;
 const SERVERS = {
   euw: { platform: "euw1", region: "europe" },
   tr: { platform: "tr1", region: "europe" },
+  na: { platform: "na1", region: "americas" },
+  kr: { platform: "kr", region: "asia" },
+  eune: { platform: "eun1", region: "europe" },
+  oce: { platform: "oc1", region: "sea" },
+  br: { platform: "br1", region: "americas" },
+  las: { platform: "la2", region: "americas" },
+  lan: { platform: "la1", region: "americas" },
+  jp: { platform: "jp1", region: "asia" }
 };
 
 const QUEUE_MAP = {
@@ -91,13 +99,12 @@ app.get("/api/match", async (req, res) => {
 
 app.get("/api/scraped-patch", async (req, res) => {
   try {
-    // Son yama notları sayfasını dinamik çekebilmek için ana haber akışından güncel yama linkini buluyoruz
     const mainRes = await fetch("https://www.leagueoflegends.com/en-us/news/game-updates/");
     const mainHtml = await mainRes.text();
     const $main = cheerio.load(mainHtml);
     
     let patchUrl = "";
-    let patchVersion = "26.19"; // Varsayılan
+    let patchVersion = "26.19";
 
     $main("a").each((i, el) => {
       const href = $main(el).attr("href") || "";
@@ -107,7 +114,7 @@ app.get("/api/scraped-patch", async (req, res) => {
         if (match) {
           patchVersion = match[1].replace("-", ".");
         }
-        return false; // ilk bulduğunu al (en güncel yama)
+        return false;
       }
     });
 
@@ -122,7 +129,6 @@ app.get("/api/scraped-patch", async (req, res) => {
     let patchData = [];
     $("h2, h3").each((i, el) => {
       const title = $(el).text().trim();
-      // Çok kısa veya başlık dışı metinleri elemek için uzunluk kontrolü ekleyebiliriz
       if (title.length > 2 && title.length < 20 && !title.includes("Patch") && !title.includes("Notes")) {
         let details = [];
         let nextEl = $(el).next();

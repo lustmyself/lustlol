@@ -42,6 +42,7 @@ select {
   background-position: right 8px center;
   padding-right: 24px;
 }
+select option { background: #1e1e1e; color: #fff; }
 
 input { flex: 1; font-size: 15px; }
 input::placeholder { color: var(--muted); }
@@ -116,7 +117,6 @@ button:hover svg { fill: var(--text); }
 .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-left: 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 .matches { display: grid; gap: 8px; }
 
-/* Maç kartları: Alt çizgiler kaldırıldı, sol tarafa ince renkli şerit eklendi */
 .match { 
   display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; 
   border-radius: 12px; background: rgba(26,26,36,0.85); backdrop-filter: blur(8px); 
@@ -184,7 +184,18 @@ button:hover svg { fill: var(--text); }
 <div class="search-container">
   <div class="search-wrapper">
     <form id="f">
-      <select id="s"><option value="euw">EUW</option><option value="tr">TR</option></select>
+      <select id="s">
+        <option value="euw">EUW</option>
+        <option value="tr">TR</option>
+        <option value="na">NA</option>
+        <option value="kr">KR</option>
+        <option value="eune">EUNE</option>
+        <option value="oce">OCE</option>
+        <option value="br">BR</option>
+        <option value="las">LAS</option>
+        <option value="lan">LAN</option>
+        <option value="jp">JP</option>
+      </select>
       <input id="q" placeholder="Search" autocomplete="off" data-i18n-placeholder="search_placeholder">
       <button aria-label="Ara">
         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
