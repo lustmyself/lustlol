@@ -27,7 +27,6 @@ const QUEUE_MAP = {
 async function riot(url) {
   const res = await fetch(url, { headers: { "X-Riot-Token": KEY } });
   if (!res.ok) {
-    const errText = await res.text();
     const err = new Error("Riot API hatası");
     err.status = res.status;
     throw err;
@@ -36,7 +35,7 @@ async function riot(url) {
 }
 
 app.get("/api/player", async (req, res) => {
-  const { name, tag, server = "euw" } = req.query;
+  const { name, tag, server = "euw", start = 0, count = 20 } = req.query;
   const s = SERVERS[server];
   if (!name || !tag || !s) return res.status(400).json({ error: "Eksik parametre" });
 
@@ -46,11 +45,15 @@ app.get("/api/player", async (req, res) => {
     const ranked = await riot(`https://${s.platform}.api.riotgames.com/lol/league/v4/entries/by-puuid/${account.puuid}`);
 
     let matches = [];
+    let totalAvailable = 0;
     try {
       const startTime = Math.floor((Date.now() - 400 * 24 * 60 * 60 * 1000) / 1000);
-      const matchIds = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?startTime=${startTime}&start=0&count=20`);
+      const matchIds = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?startTime=${startTime}&start=0&count=100`);
+      
+      totalAvailable = matchIds.length;
+      const sliceIds = matchIds.slice(parseInt(start), parseInt(start) + parseInt(count));
 
-      for (const matchId of matchIds) {
+      for (const matchId of sliceIds) {
         const matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
         const participants = matchData.info.participants;
         const p = participants.find(part => part.puuid === account.puuid);
@@ -82,7 +85,7 @@ app.get("/api/player", async (req, res) => {
       }
     } catch (mErr) {}
 
-    res.json({ name: account.gameName, tag: account.tagLine, level: summoner.summonerLevel, profileIconId: summoner.profileIconId, ranked, matches });
+    res.json({ name: account.gameName, tag: account.tagLine, level: summoner.summonerLevel, profileIconId: summoner.profileIconId, ranked, matches, totalAvailable });
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
@@ -94,7 +97,9 @@ app.get("/api/match", async (req, res) => {
   try {
     const matchData = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/${id}`);
     res.json(matchData);
-  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+  } catch (e) { 
+    res.status(e.status || 500).json({ error: "Maç bulunamadı veya Riot API sınırı aşıldı." }); 
+  }
 });
 
 app.get("/api/scraped-patch", async (req, res) => {
@@ -111,16 +116,12 @@ app.get("/api/scraped-patch", async (req, res) => {
       if (href.includes("league-of-legends-patch-")) {
         patchUrl = href.startsWith("http") ? href : `https://www.leagueoflegends.com${href}`;
         const match = href.match(/patch-(\d+-\d+)/);
-        if (match) {
-          patchVersion = match[1].replace("-", ".");
-        }
+        if (match) patchVersion = match[1].replace("-", ".");
         return false;
       }
     });
 
-    if (!patchUrl) {
-      patchUrl = "https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-19-notes/";
-    }
+    if (!patchUrl) patchUrl = "https://www.leagueoflegends.com/en-us/news/game-updates/league-of-legends-patch-26-19-notes/";
 
     const response = await fetch(patchUrl);
     const html = await response.text();
@@ -139,9 +140,7 @@ app.get("/api/scraped-patch", async (req, res) => {
           nextEl = nextEl.next();
           count++;
         }
-        if (details.length > 0) {
-          patchData.push({ champion: title, details });
-        }
+        if (details.length > 0) patchData.push({ champion: title, details });
       }
     });
 
