@@ -7,11 +7,16 @@ const app = express();
 app.use(express.static("public"));
 const KEY = process.env.RIOT_API_KEY;
 
-// MongoDB Bağlantısı ve Konsol Çıktısı
-mongoose.connect(process.env.MONGO_URI)
+// MongoDB Bağlantısı ve Zaman Aşımı / Buffering Ayarları
+mongoose.connect(process.env.MONGO_URI, {
+  serverSelectionTimeoutMS: 60000,
+  socketTimeoutMS: 60000,
+  bufferCommands: false,
+})
   .then(() => console.log("MongoDB Atlas bağlantısı başarılı!"))
   .catch(err => console.error("MongoDB bağlantı hatası:", err));
 
+// Maç Verisi İçin Şema (Schema)
 const matchSchema = new mongoose.Schema({
   matchId: { type: String, unique: true, index: true },
   data: Object,
