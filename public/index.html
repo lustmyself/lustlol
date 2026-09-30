@@ -74,12 +74,12 @@ button:hover svg { fill: var(--text); }
 .dropdown-item .tag { color: var(--muted); font-size: 12px; }
 .dropdown-item .server-tag { color: var(--muted); font-size: 11px; margin-left: auto; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; font-weight: 600; }
 
-#out { position: relative; z-index: 10; width: min(1200px, 100%); padding: 0 32px; margin: 0 auto; }
+/* #out genişletildi ve tam ekran sol tarafa hizalandı */
+#out { position: relative; z-index: 10; width: 100%; padding: 0 32px; margin: 0; }
 .msg { color: var(--muted); text-align: center; padding: 24px; }
 
-/* Kutu tam sola (işaretlediğin yere) hizalandı ve sol boşluk sıfırlandı */
-.home-layout { display: flex; justify-content: flex-start; margin-top: 20px; padding-left: 0; }
-.patch-panel { width: 420px; max-width: 100%; background: rgba(26,26,36,0.9); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+.home-layout { display: flex; justify-content: flex-start; margin-top: 20px; width: 100%; }
+.patch-panel { width: 380px; max-width: 100%; background: rgba(26,26,36,0.9); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); margin-left: 0; }
 
 .patch-header { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 .patch-body { max-height: 550px; overflow-y: auto; padding-right: 4px; display: flex; flex-direction: column; gap: 12px; }
@@ -103,7 +103,7 @@ button:hover svg { fill: var(--text); }
 .profile-info h1 { font-size: 32px; font-weight: 800; display: flex; align-items: baseline; gap: 8px; }
 .profile-info h1 span { color: var(--muted); font-size: 20px; font-weight: 600; }
 
-.main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+.main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; max-width: 1200px; margin: 0 auto; }
 @media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
 
 .rank-card { background: rgba(26,26,36,0.85); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
