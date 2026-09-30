@@ -25,6 +25,7 @@ nav { position: relative; z-index: 10; width: 100%; background: var(--nav); bord
 .logo-nav span { color: var(--purple); }
 .nav-right { display: flex; align-items: center; gap: 24px; font-size: 14px; color: var(--muted); }
 .lang-select { background: transparent; color: var(--text); border: none; outline: none; cursor: pointer; font-family: inherit; font-size: 14px; }
+.lang-select option { background: var(--nav); color: var(--text); }
 
 .search-container { position: relative; z-index: 20; width: min(1200px, 100%); margin: 20px 32px 16px auto; padding: 0 32px; display: flex; justify-content: flex-end; }
 .search-wrapper { position: relative; width: 420px; max-width: 100%; }
@@ -126,7 +127,6 @@ button:hover svg { fill: var(--text); }
 .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-left: 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 .matches { display: grid; gap: 8px; }
 
-/* MAÇ KARTI VE İDEAL BOYUTTA İTEM / TAKIM İKONLARI */
 .match { 
   display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; 
   border-radius: 12px; background: rgba(26,26,36,0.85); backdrop-filter: blur(8px); 
@@ -149,7 +149,6 @@ button:hover svg { fill: var(--text); }
 .match-stats .kda-text { font-size: 14px; font-weight: 700; color: var(--text); }
 .match-stats .sub-stat { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-/* İTEMLER 24px OLARAK BÜYÜTÜLDÜ VE TAKIM İKONLARIYLA ORANTILANDI */
 .match-items { display: grid; grid-template-columns: repeat(4, 24px); gap: 3px; align-content: center; }
 .match-items img, .match-items .item-empty { width: 24px; height: 24px; border-radius: 4px; background: rgba(255,255,255,0.05); }
 
@@ -178,9 +177,12 @@ button:hover svg { fill: var(--text); }
 <nav>
   <a href="/" class="logo-nav">lust<span>lol</span>.lol</a>
   <div class="nav-right">
-    <span>Leaderboards</span>
-    <span>Tierlist & Build</span>
-    <select class="lang-select"><option>English</option><option>Türkçe</option></select>
+    <span data-i18n="nav_leaderboards">Leaderboards</span>
+    <span data-i18n="nav_tierlist">Tierlist & Build</span>
+    <select id="lang-picker" class="lang-select">
+      <option value="en">English</option>
+      <option value="tr">Türkçe</option>
+    </select>
   </div>
 </nav>
 
@@ -201,20 +203,20 @@ button:hover svg { fill: var(--text); }
   <div class="home-layout">
     <div class="patch-panel">
       <div class="patch-header">
-        <span>Patch Highlights</span>
+        <span data-i18n="patch_highlights">Patch Highlights</span>
         <span id="patch-version-tag" style="color:var(--purple); font-size:12px">v26.19</span>
       </div>
       <div class="patch-body">
         <div>
-          <div class="patch-section-title buff">▲ Buffs</div>
+          <div class="patch-section-title buff" data-i18n="buffs">▲ Buffs</div>
           <div class="patch-champ-grid" id="buffs-grid"></div>
         </div>
         <div>
-          <div class="patch-section-title nerf">▼ Nerfs</div>
+          <div class="patch-section-title nerf" data-i18n="nerfs">▼ Nerfs</div>
           <div class="patch-champ-grid" id="nerfs-grid"></div>
         </div>
         <div>
-          <div class="patch-section-title" style="color: var(--adjust);">⚡ Adjusted</div>
+          <div class="patch-section-title" style="color: var(--adjust);" data-i18n="adjusted">⚡ Adjusted</div>
           <div class="patch-champ-grid" id="adjusted-grid"></div>
         </div>
       </div>
@@ -222,11 +224,11 @@ button:hover svg { fill: var(--text); }
 
     <div class="patch-details-panel">
       <div class="patch-details-header">
-        <span>🛡️ Resmi Riot Yama Notları</span>
+        <span data-i18n="patch_notes_title">🛡️ Resmi Riot Yama Notları</span>
       </div>
       <div class="patch-details-content" id="scraped-details">
         <div class="detail-item">
-          <p style="color:var(--muted)">Yama verileri yükleniyor...</p>
+          <p style="color:var(--muted)" data-i18n="loading_patch">Yama verileri yükleniyor...</p>
         </div>
       </div>
     </div>
@@ -237,6 +239,83 @@ button:hover svg { fill: var(--text); }
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let ver="14.24.1";
+
+// Çeviri Sözlüğü (i18n)
+const translations = {
+  en: {
+    nav_leaderboards: "Leaderboards",
+    nav_tierlist: "Tierlist & Build",
+    patch_highlights: "Patch Highlights",
+    buffs: "▲ Buffs",
+    nerfs: "▼ Nerfs",
+    adjusted: "⚡ Adjusted",
+    patch_notes_title: "🛡️ Official Riot Patch Notes",
+    loading_patch: "Loading patch data...",
+    recent_players: "Players / Recent",
+    analyzing: "Analyzing...",
+    server_error: "Server connection error.",
+    format_error: "Format: Name#TAG (Ex: lust#77)",
+    player_not_found: "Error: Player not found or API error",
+    match_not_found: "No recent matches found.",
+    soloqueue: "Solo/Duo",
+    flex: "Flex",
+    arena: "Arena",
+    unranked: "Unranked",
+    victory: "Victory",
+    defeat: "Defeat",
+    played: "Played",
+    winrate: "Winrate"
+  },
+  tr: {
+    nav_leaderboards: "Sıralamalar",
+    nav_tierlist: "Tierlist & Build",
+    patch_highlights: "Yama Öne Çıkanlar",
+    buffs: "▲ Güçlendirmeler",
+    nerfs: "▼ Zayıflatmalar",
+    adjusted: "⚡ Düzenlenenler",
+    patch_notes_title: "🛡️ Resmi Riot Yama Notları",
+    loading_patch: "Yama verileri yükleniyor...",
+    recent_players: "Oyuncular / Son Aramalar",
+    analyzing: "Analiz ediliyor...",
+    server_error: "Sunucu bağlantı hatası.",
+    format_error: "Format: İsim#TAG (Örn: lust#77)",
+    player_not_found: "Hata: Oyuncu bulunamadı veya API hatası",
+    match_not_found: "Yakın zamanda oynanmış maç bulunamadı.",
+    soloqueue: "Tekli/Çiftli",
+    flex: "Esnek",
+    arena: "Arena",
+    unranked: "Derecesiz",
+    victory: "Zafer",
+    defeat: "Bozgun",
+    played: "Oynanan",
+    winrate: "Kazanma Oranı"
+  }
+};
+
+let currentLang = localStorage.getItem("lustlol_lang") || "en";
+$("lang-picker").value = currentLang;
+
+function t(key) {
+  return translations[currentLang][key] || key;
+}
+
+$("lang-picker").addEventListener("change", (e) => {
+  currentLang = e.target.value;
+  localStorage.setItem("lustlol_lang", currentLang);
+  updateTexts();
+  if(window.lastPlayerData) {
+    render(window.lastPlayerData, window.lastPlayerServer);
+  }
+});
+
+function updateTexts() {
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    if(translations[currentLang][key]) {
+      el.textContent = translations[currentLang][key];
+    }
+  });
+}
 
 const buffs = ["Aatrox", "Aphelios", "Aurora", "Draven", "Elise", "Fiora", "KhaZix", "Lillia", "MasterYi", "Volibear"];
 const nerfs = ["Nasus", "Nocturne", "Poppy", "Rumble", "Ryze", "Vi"];
@@ -288,6 +367,7 @@ async function fetchScrapedPatchNotes() {
 }
 
 initVersion();
+updateTexts();
 
 const dd = $("recent-dropdown");
 const qInput = $("q");
@@ -313,7 +393,7 @@ function handleSearchInput() {
   }
   if (matched.length === 0) return dd.classList.add("dropdown-hidden");
 
-  let html = `<div class="dropdown-section-title">Players / Recent</div>`;
+  let html = `<div class="dropdown-section-title">${t("recent_players")}</div>`;
   matched.slice(0, 5).forEach(p => {
     html += `
       <div class="dropdown-item" onclick="selectPlayer('${esc(p.name)}','${esc(p.tag)}','${p.server}')">
@@ -349,19 +429,21 @@ document.addEventListener("click", e => { if (!e.target.closest(".search-wrapper
 $("f").addEventListener("submit", async e => {
   e.preventDefault();
   const raw = qInput.value.trim(), i = raw.lastIndexOf("#");
-  if (i < 1 || i === raw.length - 1) return $("out").innerHTML='<p class="msg" style="color:#ff4655">Format: İsim#TAG (Örn: lust#77)</p>';
+  if (i < 1 || i === raw.length - 1) return $("out").innerHTML=`<p class="msg" style="color:#ff4655">${t("format_error")}</p>`;
   const name = raw.slice(0, i), tag = raw.slice(i + 1), server = sSelect.value;
   
   dd.classList.add("dropdown-hidden");
-  $("out").innerHTML='<p class="msg">Analiz ediliyor...</p>';
+  $("out").innerHTML=`<p class="msg">${t("analyzing")}</p>`;
   
   try {
     const r = await fetch(`/api/player?name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}&server=${server}`);
     const d = await r.json();
-    if (!r.ok) return $("out").innerHTML=`<p class="msg" style="color:#ff4655">Hata: Oyuncu bulunamadı veya API hatası (${r.status})</p>`;
+    if (!r.ok) return $("out").innerHTML=`<p class="msg" style="color:#ff4655">${t("player_not_found")} (${r.status})</p>`;
     savePlayer(d.name, d.tag, server, d.profileIconId);
+    window.lastPlayerData = d;
+    window.lastPlayerServer = server;
     render(d, server);
-  } catch { $("out").innerHTML='<p class="msg" style="color:#ff4655">Sunucu bağlantı hatası.</p>'; }
+  } catch { $("out").innerHTML=`<p class="msg" style="color:#ff4655">${t("server_error")}</p>`; }
 });
 
 function render(d, server){
@@ -387,16 +469,16 @@ function render(d, server){
       <div class="rank-card">
         ${borderImg}
         <div class="rank-card-info">
-          <h3>Tekli/Çiftli</h3>
+          <h3>${t("soloqueue")}</h3>
           <div class="tier">${esc(tierName)}</div>
           <div class="lp"><b>${solo.leaguePoints} LP</b> · ${solo.wins}W ${solo.losses}L</div>
         </div>
       </div>`;
   } else {
-    rankHTML = `<div class="rank-card"><div class="rank-card-info"><h3>Tekli/Çiftli</h3><div class="tier">Derecesiz</div></div></div>`;
+    rankHTML = `<div class="rank-card"><div class="rank-card-info"><h3>${t("soloqueue")}</h3><div class="tier">${t("unranked")}</div></div></div>`;
   }
 
-  let mHTML = '<div class="section-title">Son Maçlar</div><div class="matches">';
+  let mHTML = `<div class="section-title">${currentLang === 'tr' ? 'Son Maçlar' : 'Recent Matches'}</div><div class="matches">`;
   if(d.matches && d.matches.length > 0){
     d.matches.forEach(m => {
       const isWin = m.win ? "win" : "loss";
@@ -433,8 +515,8 @@ function render(d, server){
         <div class="match-left">
           <img src="https://ddragon.leagueoflegends.com/cdn/${ver}/img/champion/${m.champion}.png" class="champ-icon" alt="${m.champion}">
           <div class="match-info">
-            <b class="${textClass}">${m.win ? "Victory" : "Defeat"}</b>
-            <span>Soloqueue</span>
+            <b class="${textClass}">${m.win ? t("victory") : t("defeat")}</b>
+            <span>${t("soloqueue")}</span>
           </div>
         </div>
 
@@ -454,7 +536,7 @@ function render(d, server){
       </a>`;
     });
   } else {
-    mHTML += '<p style="color:var(--muted)">Yakın zamanda oynanmış maç bulunamadı.</p>';
+    mHTML += `<p style="color:var(--muted)">${t("match_not_found")}</p>`;
   }
   mHTML += '</div>';
 
@@ -478,22 +560,22 @@ function render(d, server){
       <div class="right-col">
         <div class="stats-panel">
           <div class="stats-panel-header">
-            <span class="active">Soloqueue</span>
-            <span>Flex</span>
-            <span>Arena</span>
+            <span class="active">${t("soloqueue")}</span>
+            <span>${t("flex")}</span>
+            <span>${t("arena")}</span>
           </div>
           <div class="circles-row">
             <div class="circle-wrapper">
               <div class="progress-ring" style="background: conic-gradient(#4a5568 360deg, var(--ring-bg) 0);">
                 <div class="progress-value">${totalGames}</div>
               </div>
-              <div class="circle-label">Played</div>
+              <div class="circle-label">${t("played")}</div>
             </div>
             <div class="circle-wrapper">
               <div class="progress-ring" style="background: conic-gradient(var(--purple) ${wrDeg}deg, var(--ring-bg) 0);">
                 <div class="progress-value">${winRate}%</div>
               </div>
-              <div class="circle-label">Winrate</div>
+              <div class="circle-label">${t("winrate")}</div>
             </div>
           </div>
         </div>
