@@ -27,7 +27,7 @@ const QUEUE_MAP = {
 async function riot(url) {
   const res = await fetch(url, { headers: { "X-Riot-Token": KEY } });
   if (!res.ok) {
-    const err = new Error("Riot API hatası");
+    const err = new Error(`Riot API hatası: ${res.status}`);
     err.status = res.status;
     throw err;
   }
@@ -89,15 +89,22 @@ app.get("/api/player", async (req, res) => {
   } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
-// Maç ID hangi bölgede olursa olsun otomatik tarayıp bulan akıllı rota
 app.get("/api/match", async (req, res) => {
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: "Eksik parametre" });
 
   try {
-    const regions = ["europe", "americas", "asia", "sea"];
-    let matchData = null;
+    // Maç ID önezine göre bölge tahmini yap (Örn: TR1_, EUW1_ -> europe)
+    let regions = ["europe", "americas", "asia", "sea"];
+    if (id.startsWith("TR1_") || id.startsWith("EUW1_") || id.startsWith("EUN1_")) {
+      regions = ["europe", "americas", "asia", "sea"];
+    } else if (id.startsWith("NA1_") || id.startsWith("BR1_")) {
+      regions = ["americas", "europe", "asia", "sea"];
+    } else if (id.startsWith("KR_") || id.startsWith("JP1_")) {
+      regions = ["asia", "europe", "americas", "sea"];
+    }
 
+    let matchData = null;
     for (const reg of regions) {
       try {
         const resData = await fetch(`https://${reg}.api.riotgames.com/lol/match/v5/matches/${id}`, {
@@ -111,12 +118,12 @@ app.get("/api/match", async (req, res) => {
     }
 
     if (!matchData) {
-      return res.status(404).json({ error: "Maç hiçbir bölgede bulunamadı." });
+      return res.status(404).json({ error: "Maç bulunamadı." });
     }
 
     res.json(matchData);
-  } catch (e) { 
-    res.status(500).json({ error: "Maç bulunamadı veya Riot API sınırı aşıldı." }); 
+  } catch (e) {
+    res.status(500).json({ error: "Maç yüklenirken hata oluştu." });
   }
 });
 

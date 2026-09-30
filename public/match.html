@@ -37,11 +37,9 @@ const $=id=>document.getElementById(id);
 let ver="14.24.1";
 fetch("https://ddragon.leagueoflegends.com/api/versions.json").then(r=>r.json()).then(v=>ver=v[0]).catch(()=>{});
 
-// URL'den ID al
 const params = new URLSearchParams(window.location.search);
 const matchId = params.get("id");
 
-// Akıllı sunucu tespiti: URL'de yoksa localStorage'dan, o da yoksa varsayılan "tr"den al
 let server = params.get("server");
 if (!server) {
   const savedPlayers = JSON.parse(localStorage.getItem("lustlol_players") || "[]");
@@ -95,7 +93,15 @@ async function loadMatch(){
       ${lossTeamHTML}
     `;
   }catch(e){
-    $("out").innerHTML = "<h2 style='text-align:center;padding:40px'>Maç bulunamadı veya Riot API sınırı aşıldı.</h2>";
+    $("out").innerHTML = `
+      <div style="text-align:center; padding: 60px 20px;">
+        <h2 style="color: #fc8181; margin-bottom: 12px;">Maç Detaylarına Ulaşılamıyor</h2>
+        <p style="color: var(--muted); font-size: 14px; max-width: 450px; margin: 0 auto 24px auto;">
+          Bu maç çok eski bir tarihe ait olabilir veya Riot Games sunucuları bu maçın detay verisini arşivden kaldırmış/silmiş olabilir.
+        </p>
+        <a href="javascript:window.close();" style="background: #3b82f6; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">Sayfayı Kapat</a>
+      </div>
+    `;
   }
 }
 </script>
