@@ -37,10 +37,16 @@ const $=id=>document.getElementById(id);
 let ver="14.24.1";
 fetch("https://ddragon.leagueoflegends.com/api/versions.json").then(r=>r.json()).then(v=>ver=v[0]).catch(()=>{});
 
-// URL'den ID ve Server'ı al
+// URL'den ID al
 const params = new URLSearchParams(window.location.search);
 const matchId = params.get("id");
-const server = params.get("server");
+
+// Akıllı sunucu tespiti: URL'de yoksa localStorage'dan, o da yoksa varsayılan "tr"den al
+let server = params.get("server");
+if (!server) {
+  const savedPlayers = JSON.parse(localStorage.getItem("lustlol_players") || "[]");
+  server = savedPlayers.length > 0 ? savedPlayers[0].server : "tr";
+}
 
 if(!matchId) $("out").innerHTML = "<h2 style='text-align:center;padding:40px'>Geçersiz Maç ID</h2>";
 else loadMatch();
