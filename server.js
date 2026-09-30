@@ -61,8 +61,8 @@ app.get("/api/player", async (req, res) => {
     let matches = [];
     let totalAvailable = 0;
     try {
-      const startTime = Math.floor((Date.now() - 400 * 24 * 60 * 60 * 1000) / 1000);
-      const matchIds = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?startTime=${startTime}&start=0&count=100`);
+      // startTime filtresi kaldırıldı, doğrudan en güncel maç ID'leri çekiliyor
+      const matchIds = await riot(`https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?start=0&count=100`);
       
       totalAvailable = matchIds.length;
       const sliceIds = matchIds.slice(parseInt(start), parseInt(start) + parseInt(count));
@@ -122,7 +122,6 @@ app.get("/api/match", async (req, res) => {
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: "Eksik parametre" });
 
-  // 1. Önce MongoDB veritabanında ara
   const cachedMatch = await MatchModel.findOne({ matchId: id });
   if (cachedMatch) {
     return res.json(cachedMatch.data);
@@ -155,9 +154,7 @@ app.get("/api/match", async (req, res) => {
       return res.status(404).json({ error: "Maç bulunamadı." });
     }
 
-    // Başarıyla bulundu, MongoDB'ye kaydet
     await MatchModel.create({ matchId: id, data: matchData });
-
     res.json(matchData);
   } catch (e) {
     res.status(500).json({ error: "Maç yüklenirken hata oluştu." });
@@ -212,7 +209,6 @@ app.get("/api/scraped-patch", async (req, res) => {
   }
 });
 
-// Doğrudan URL ile profil sayfalarının yenilendiğinde (F5) açılabilmesi için gerekli rota:
 app.get("/summoner/:server/:riotId", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
