@@ -7,15 +7,6 @@ const app = express();
 app.use(express.static("public"));
 const KEY = process.env.RIOT_API_KEY;
 
-// MongoDB Bağlantısı ve Zaman Aşımı / Buffering Ayarları
-mongoose.connect(process.env.MONGO_URI, {
-  serverSelectionTimeoutMS: 60000,
-  socketTimeoutMS: 60000,
-  bufferCommands: false,
-})
-  .then(() => console.log("MongoDB Atlas bağlantısı başarılı!"))
-  .catch(err => console.error("MongoDB bağlantı hatası:", err));
-
 // Maç Verisi İçin Şema (Schema)
 const matchSchema = new mongoose.Schema({
   matchId: { type: String, unique: true, index: true },
@@ -65,15 +56,17 @@ app.get("/api/player", async (req, res) => {
     let matches = [];
     let totalAvailable = 0;
     try {
-      const matchIdsUrl = `https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?start=0&count=20`;
-      console.log("Maç ID'leri isteniyor:", matchIdsUrl);
-      
+      // Riot'tan kullanıcının geniş maç geçmişi listesini çekiyoruz
+      const matchIdsUrl = `https://${s.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${account.puuid}/ids?start=0&count=100`;
       const matchIds = await riot(matchIdsUrl);
-      console.log("Gelen maç ID sayısı:", matchIds ? matchIds.length : 0);
 
       if (matchIds && Array.isArray(matchIds)) {
         totalAvailable = matchIds.length;
-        const sliceIds = matchIds.slice(parseInt(start), parseInt(start) + parseInt(count));
+        
+        // Frontend'den gelen start ve count değerlerine göre dilimleme
+        const startIndex = parseInt(start) || 0;
+        const itemCount = parseInt(count) || 20;
+        const sliceIds = matchIds.slice(startIndex, startIndex + itemCount);
 
         for (const matchId of sliceIds) {
           let matchData;
@@ -207,4 +200,15 @@ app.get("/summoner/:server/:riotId", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
 
-app.listen(3000, () => console.log("Sunucu çalışıyor: http://localhost:3000"));
+// Veritabanı bağlantısı kurulduktan sonra sunucuyu başlat
+mongoose.connect(process.env.MONGO_URI, {
+  serverSelectionTimeoutMS: 60000,
+  socketTimeoutMS: 60000,
+})
+  .then(() => {
+    console.log("MongoDB Atlas bağlantısı başarılı!");
+    app.listen(3000, () => console.log("Sunucu çalışıyor: http://localhost:3000"));
+  })
+  .catch(err => {
+    console.error("MongoDB bağlantı hatası:", err);
+  });
