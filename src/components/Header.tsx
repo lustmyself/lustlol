@@ -15,10 +15,8 @@ const NAV: { href: string; key: DictKey }[] = [
 export function Logo() {
   return (
     <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="lustlol">
-      <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden>
-        <path d="M16 2 29 9.5v13L16 30 3 22.5v-13Z" fill="none" stroke="var(--color-gold)" strokeWidth="2" />
-        <path d="M11 9v14h10" fill="none" stroke="var(--color-teal)" strokeWidth="2.6" strokeLinecap="square" />
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg ring-1 ring-gold/60" />
       <span className="font-display text-lg font-bold tracking-wide">
         lust<span className="text-gold">lol</span>
       </span>
