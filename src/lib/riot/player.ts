@@ -125,7 +125,7 @@ export async function getMatch(id: string, server: Server): Promise<MatchSummary
   const hit = matchCache.get(id);
   if (hit) return hit;
 
-  const coll = await mongoCollection("matches");
+  const coll = await mongoCollection("match_summaries");
   const stored = (await coll?.findOne({ _id: id as never }).catch(() => null)) as { match?: MatchSummary } | null;
   if (stored?.match) {
     matchCache.set(id, stored.match);
