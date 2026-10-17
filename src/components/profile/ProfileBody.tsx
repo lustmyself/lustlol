@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { MatchCard, type Assets } from "./MatchCard";
-import { img } from "@/lib/riot/images";
+import { SeasonChampions } from "./SeasonChampions";
 import { QUEUE_IDS, riotIdToSlug } from "@/lib/riot/servers";
 import { kdaColor, kdaRatio, winrateColor } from "@/lib/format";
 import type { DictKey } from "@/lib/i18n/dictionaries";
@@ -78,39 +78,7 @@ export function ProfileBody({
       <aside className="space-y-4">
         {sidebar}
 
-        {stats.champions.length > 0 && (
-          <Panel title={t("champ_stats")} note={t("champ_stats_note", { n: stats.games })}>
-            <ul className="space-y-2">
-              {stats.champions.slice(0, 7).map((c) => {
-                const wr = Math.round((c.wins / c.games) * 100);
-                return (
-                  <li key={c.champion} className="flex items-center gap-2.5 text-xs">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img.champion(assets.version, c.champion)} alt="" className="h-8 w-8 rounded-full" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-text">{c.champion}</p>
-                      <p className="tabular text-faint">
-                        {(c.cs / c.games).toFixed(0)} {t("cs")}
-                      </p>
-                    </div>
-                    <div className="w-20 shrink-0 text-center">
-                      <p className={`tabular font-semibold ${kdaColor(c.k, c.d, c.a)}`}>{kdaRatio(c.k, c.d, c.a)}</p>
-                      <p className="tabular text-faint">
-                        {(c.k / c.games).toFixed(1)}/{(c.d / c.games).toFixed(1)}/{(c.a / c.games).toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="w-16 shrink-0 text-right whitespace-nowrap">
-                      <p className={`tabular font-semibold ${winrateColor(wr)}`}>{wr}%</p>
-                      <p className="tabular text-faint">
-                        {c.games} {t("games").toLowerCase()}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </Panel>
-        )}
+        <SeasonChampions server={server} puuid={puuid} version={assets.version} names={assets.names} />
 
         {matches.length > 0 && (
           <Panel title={t("duo_title")} note={t("duo_note")}>
@@ -240,13 +208,11 @@ interface Stats {
   d: number;
   a: number;
   form: boolean[];
-  champions: { champion: string; games: number; wins: number; k: number; d: number; a: number; cs: number }[];
   duos: { puuid: string; name: string; tag: string; games: number; wins: number }[];
 }
 
 function summarize(matches: MatchSummary[], puuid: string): Stats {
-  const s: Stats = { games: 0, wins: 0, k: 0, d: 0, a: 0, form: [], champions: [], duos: [] };
-  const champs = new Map<string, Stats["champions"][number]>();
+  const s: Stats = { games: 0, wins: 0, k: 0, d: 0, a: 0, form: [], duos: [] };
   const duos = new Map<string, Stats["duos"][number]>();
 
   for (const m of matches) {
@@ -260,14 +226,6 @@ function summarize(matches: MatchSummary[], puuid: string): Stats {
     s.a += me.assists;
     s.form.push(me.win);
 
-    const c = champs.get(me.champion) ?? { champion: me.champion, games: 0, wins: 0, k: 0, d: 0, a: 0, cs: 0 };
-    c.games++;
-    c.wins += me.win ? 1 : 0;
-    c.k += me.kills;
-    c.d += me.deaths;
-    c.a += me.assists;
-    c.cs += me.cs;
-    champs.set(me.champion, c);
 
     for (const p of m.players) {
       if (p.teamId !== me.teamId || p.puuid === puuid || p.name === "?") continue;
@@ -278,7 +236,6 @@ function summarize(matches: MatchSummary[], puuid: string): Stats {
     }
   }
 
-  s.champions = [...champs.values()].sort((a, b) => b.games - a.games || b.wins - a.wins);
   s.duos = [...duos.values()].filter((d) => d.games >= 2).sort((a, b) => b.games - a.games || b.wins - a.wins);
   return s;
 }

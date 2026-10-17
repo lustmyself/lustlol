@@ -1,7 +1,8 @@
 import "server-only";
 import { MemoryCache, cached, mongoCollection } from "@/lib/cache";
-import { riot } from "./client";
+import { riot, type Priority } from "./client";
 import { recordRanks } from "./history";
+import { indexMatch } from "./games";
 import { getServer, type Server } from "./servers";
 import type { MatchPage, MatchPlayer, MatchSummary, Profile, RankedEntry, SearchSuggestion } from "./types";
 
@@ -114,7 +115,7 @@ export async function getMatchPage(
   };
 }
 
-export async function getMatch(id: string, server: Server): Promise<MatchSummary> {
+export async function getMatch(id: string, server: Server, priority: Priority = "high"): Promise<MatchSummary> {
   const hit = matchCache.get(id);
   if (hit) return hit;
 
@@ -125,10 +126,11 @@ export async function getMatch(id: string, server: Server): Promise<MatchSummary
     return stored.match;
   }
 
-  const raw = await riot<RawMatch>(server.region, `/lol/match/v5/matches/${encodeURIComponent(id)}`);
+  const raw = await riot<RawMatch>(server.region, `/lol/match/v5/matches/${encodeURIComponent(id)}`, priority);
   const match = summarize(raw);
   matchCache.set(id, match);
   void coll?.updateOne({ _id: id as never }, { $set: { match, savedAt: new Date() } }, { upsert: true }).catch(() => {});
+  void indexMatch(match);
 
   for (const p of raw.info.participants) {
     if (p.riotIdGameName && p.riotIdTagline) {

@@ -68,7 +68,12 @@ export default async function SummonerPage({ params }: { params: Params }) {
       <ProfileBody
         puuid={profile.puuid}
         server={server.id}
-        assets={{ version: staticData.version, spells: staticData.spells, runes: staticData.runes }}
+        assets={{
+          version: staticData.version,
+          spells: staticData.spells,
+          runes: staticData.runes,
+          names: Object.fromEntries(Object.values(staticData.champions).map((c) => [c.id, c.name])),
+        }}
         initial={initial}
         initialError={initialError}
         sidebar={

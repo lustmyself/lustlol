@@ -53,6 +53,15 @@ const tr = {
   season_end: "Sezon sonunda {r} idi.",
   season_now: "Şu an {r}.",
 
+  season_champs: "Sezon şampiyonları",
+  season_champs_note: "Bu sezonki tüm dereceli maçlar",
+  season_sync: "{f} / {t} maç yüklendi",
+  season_sync_note: "İlk yükleme maç sayısına göre birkaç dakika sürebilir. Sayfayı kapatsan da devam eder.",
+  season_champs_empty: "Bu sezon dereceli maç yok.",
+  all_ranked: "Tümü",
+  show_all: "Tümünü göster ({n})",
+  show_less: "Daha az göster",
+
   champ_stats: "Şampiyon istatistikleri",
   champ_stats_note: "Yüklenen {n} maçtan",
   duo_title: "Birlikte oynadıkları",
@@ -174,6 +183,15 @@ const en: Dictionary = {
   season_peak_now: "Highest so far this season: {r}.",
   season_end: "Ended the season at {r}.",
   season_now: "Currently {r}.",
+
+  season_champs: "Season champions",
+  season_champs_note: "Every ranked game this season",
+  season_sync: "{f} / {t} games loaded",
+  season_sync_note: "The first load can take a few minutes depending on games played. It keeps going if you leave.",
+  season_champs_empty: "No ranked games this season.",
+  all_ranked: "All",
+  show_all: "Show all ({n})",
+  show_less: "Show less",
 
   champ_stats: "Champion stats",
   champ_stats_note: "From {n} loaded games",

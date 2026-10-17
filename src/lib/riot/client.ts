@@ -19,17 +19,24 @@ const windows = (process.env.RIOT_RATE_LIMITS || "20:1,100:120").split(",").map(
   return { count, ms: seconds * 1000, stamps: [] as number[] };
 });
 
-let queue: Promise<void> = Promise.resolve();
+export type Priority = "high" | "low";
+
+// Page loads ("high") may use the whole budget. Background work ("low") stops at
+// LOW_SHARE of every window so a visitor's request never waits behind a sync.
+const LOW_SHARE = 0.6;
+const lanes: Record<Priority, Promise<void>> = { high: Promise.resolve(), low: Promise.resolve() };
 let pausedUntil = 0;
 
-function acquire(): Promise<void> {
-  const turn = queue.then(async () => {
+function acquire(priority: Priority): Promise<void> {
+  const share = priority === "low" ? LOW_SHARE : 1;
+  const turn = lanes[priority].then(async () => {
     for (;;) {
       const now = Date.now();
       let wait = Math.max(0, pausedUntil - now);
       for (const w of windows) {
         w.stamps = w.stamps.filter((t) => now - t < w.ms);
-        if (w.stamps.length >= w.count) wait = Math.max(wait, w.stamps[0] + w.ms - now);
+        const cap = Math.max(1, Math.floor(w.count * share));
+        if (w.stamps.length >= cap) wait = Math.max(wait, w.stamps[w.stamps.length - cap] + w.ms - now);
       }
       if (wait === 0) break;
       await new Promise((r) => setTimeout(r, wait + 20));
@@ -37,7 +44,7 @@ function acquire(): Promise<void> {
     const now = Date.now();
     for (const w of windows) w.stamps.push(now);
   });
-  queue = turn.catch(() => {});
+  lanes[priority] = turn.catch(() => {});
   return turn;
 }
 
@@ -45,12 +52,12 @@ export function hasRiotKey(): boolean {
   return Boolean(process.env.RIOT_API_KEY);
 }
 
-export async function riot<T>(host: string, path: string, retries = 2): Promise<T> {
+export async function riot<T>(host: string, path: string, priority: Priority = "high", retries = 2): Promise<T> {
   const key = process.env.RIOT_API_KEY;
   if (!key) throw new RiotError(401, "no_key");
 
   for (let attempt = 0; ; attempt++) {
-    await acquire();
+    await acquire(priority);
     let res: Response;
     try {
       res = await fetch(`https://${host}.api.riotgames.com${path}`, {

@@ -14,6 +14,8 @@ export interface Assets {
   version: string;
   spells: Record<number, string>;
   runes: Record<number, string>;
+  /** Data Dragon id -> display name, e.g. "MonkeyKing" -> "Wukong" */
+  names: Record<string, string>;
 }
 
 function Icon({ src, size, className = "" }: { src: string | null; size: number; className?: string }) {
