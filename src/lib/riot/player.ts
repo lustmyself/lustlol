@@ -7,6 +7,7 @@ import { getServer, type Server } from "./servers";
 import type { MatchPage, MatchPlayer, MatchSummary, Profile, RankedEntry, SearchSuggestion } from "./types";
 
 const MINUTE = 60_000;
+const SUMMARY_VERSION = 2;
 const profileCache = new MemoryCache<Profile>(10 * MINUTE, 300);
 const idCache = new MemoryCache<string[]>(3 * MINUTE, 500);
 const matchCache = new MemoryCache<MatchSummary>(24 * 60 * MINUTE, 3000);
@@ -116,12 +117,13 @@ export async function getMatchPage(
 }
 
 export async function getMatch(id: string, server: Server, priority: Priority = "high"): Promise<MatchSummary> {
+  const fresh = (m: MatchSummary) => priority === "low" || (m.v ?? 1) >= SUMMARY_VERSION;
   const hit = matchCache.get(id);
-  if (hit) return hit;
+  if (hit && fresh(hit)) return hit;
 
   const coll = await mongoCollection("match_summaries");
   const stored = (await coll?.findOne({ _id: id as never }).catch(() => null)) as { match?: MatchSummary } | null;
-  if (stored?.match) {
+  if (stored?.match && fresh(stored.match)) {
     matchCache.set(id, stored.match);
     return stored.match;
   }
@@ -171,6 +173,13 @@ interface RawParticipant {
   summoner1Id: number;
   summoner2Id: number;
   perks?: { styles: { style: number; selections: { perk: number }[] }[] };
+  visionWardsBoughtInGame?: number;
+  damageDealtToBuildings?: number;
+  firstTowerKill?: boolean;
+  firstTowerAssist?: boolean;
+  challenges?: Record<string, number>;
+  playerSubteamId?: number;
+  subteamPlacement?: number;
   [item: `item${number}`]: number;
 }
 
@@ -215,9 +224,27 @@ function summarize(raw: RawMatch): MatchSummary {
     keystone: p.perks?.styles[0]?.selections[0]?.perk ?? 0,
     secondaryStyle: p.perks?.styles[1]?.style ?? 0,
     multiKill: p.largestMultiKill,
+    subteam: p.playerSubteamId || undefined,
+    placement: p.subteamPlacement || undefined,
+    extra: {
+      damageShare: p.challenges?.teamDamagePercentage ?? 0,
+      killParticipation: p.challenges?.killParticipation ?? 0,
+      soloKills: p.challenges?.soloKills ?? 0,
+      controlWards: p.challenges?.controlWardsPlaced ?? p.visionWardsBoughtInGame ?? 0,
+      visionPerMin: p.challenges?.visionScorePerMinute ?? 0,
+      csAdvantage: p.challenges?.maxCsAdvantageOnLaneOpponent ?? 0,
+      levelLead: p.challenges?.maxLevelLeadLaneOpponent ?? 0,
+      baronTakedowns: p.challenges?.baronTakedowns ?? 0,
+      dragonTakedowns: p.challenges?.dragonTakedowns ?? 0,
+      turretTakedowns: p.challenges?.turretTakedowns ?? 0,
+      buildingDamage: p.damageDealtToBuildings ?? 0,
+      firstTower: Boolean(p.firstTowerKill || p.firstTowerAssist),
+      platesTaken: p.challenges?.turretPlatesTaken ?? 0,
+    },
   }));
 
   return {
+    v: SUMMARY_VERSION,
     id: raw.metadata.matchId,
     queueId: info.queueId,
     mode: info.gameMode,

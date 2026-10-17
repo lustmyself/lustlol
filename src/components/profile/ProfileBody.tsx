@@ -12,7 +12,7 @@ import type { DictKey } from "@/lib/i18n/dictionaries";
 import type { ApiErrorCode, MatchPage, MatchSummary } from "@/lib/riot/types";
 
 const PAGE = 10;
-const FILTERS = [0, 420, 440, 400, 450, 1700];
+const FILTERS = [0, 420, 440, 400, 450, 1750];
 
 function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (

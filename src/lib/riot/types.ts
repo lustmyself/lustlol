@@ -58,6 +58,27 @@ export interface MatchPlayer {
   keystone: number;
   secondaryStyle: number;
   multiKill: number;
+  /** Added in summary v2; older stored matches don't have it. */
+  extra?: PlayerExtra;
+  /** Arena: which pair the player was in, and where the pair finished. */
+  subteam?: number;
+  placement?: number;
+}
+
+export interface PlayerExtra {
+  damageShare: number;
+  killParticipation: number;
+  soloKills: number;
+  controlWards: number;
+  visionPerMin: number;
+  csAdvantage: number;
+  levelLead: number;
+  baronTakedowns: number;
+  dragonTakedowns: number;
+  turretTakedowns: number;
+  buildingDamage: number;
+  firstTower: boolean;
+  platesTaken: number;
 }
 
 export interface MatchTeam {
@@ -70,6 +91,8 @@ export interface MatchTeam {
 }
 
 export interface MatchSummary {
+  /** Shape version; bump when summarize() starts keeping new fields. */
+  v?: number;
   id: string;
   queueId: number;
   mode: string;

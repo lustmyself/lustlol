@@ -52,6 +52,8 @@ export const QUEUE_IDS: Record<number, string> = {
   700: "queue_clash",
   900: "queue_urf",
   1700: "queue_arena",
+  1710: "queue_arena",
+  1750: "queue_arena",
 };
 
 /** Riot IDs live in the URL as "name-tag"; tags never contain a dash. */
