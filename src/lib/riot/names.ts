@@ -1,5 +1,6 @@
 import "server-only";
 import { mongoCollection } from "@/lib/cache";
+import { namesOf } from "./games";
 import { matchesInMemory } from "./player";
 
 export interface PastName {
@@ -23,6 +24,9 @@ export async function pastNames(puuid: string, current: { name: string; tag: str
     const prev = seen.get(key);
     if (!prev || prev.lastSeen < at) seen.set(key, { name, tag, lastSeen: at });
   };
+
+  // The permanent name history comes first; the other two fill in older games.
+  for (const n of await namesOf(puuid)) add(n.name, n.tag, n.lastSeen);
 
   // Per-player game rows are kept for good and carry the Riot ID at the time.
   const rows = await mongoCollection("player_games");

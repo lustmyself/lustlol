@@ -33,6 +33,51 @@ async function collection() {
   return coll;
 }
 
+export interface NameSeen {
+  puuid: string;
+  name: string;
+  tag: string;
+  lastSeen: number;
+}
+
+const namesInMemory = new Map<string, NameSeen>();
+
+/** Permanent record of every Riot ID a player has been seen with. Nothing ever deletes from it. */
+async function rememberNames(rows: PlayerGame[]) {
+  const seen = rows
+    .filter((r) => r.name && r.name !== "?")
+    .map((r) => ({
+      id: `${r.puuid}:${r.name!.toLowerCase()}#${(r.tag ?? "").toLowerCase()}`,
+      row: { puuid: r.puuid, name: r.name!, tag: r.tag ?? "", lastSeen: r.createdAt },
+    }));
+  const coll = await mongoCollection("name_history");
+  if (!coll) {
+    for (const { id, row } of seen) {
+      const prev = namesInMemory.get(id);
+      if (!prev || prev.lastSeen < row.lastSeen) namesInMemory.set(id, row);
+    }
+    return;
+  }
+  await coll
+    .bulkWrite(
+      seen.map(({ id, row }) => ({
+        updateOne: {
+          filter: { _id: id as never },
+          update: { $set: { puuid: row.puuid, name: row.name, tag: row.tag }, $max: { lastSeen: row.lastSeen } },
+          upsert: true,
+        },
+      })),
+      { ordered: false },
+    )
+    .catch(() => {});
+}
+
+export async function namesOf(puuid: string): Promise<NameSeen[]> {
+  const coll = await mongoCollection("name_history");
+  if (!coll) return [...namesInMemory.values()].filter((n) => n.puuid === puuid);
+  return (await coll.find({ puuid }, { projection: { _id: 0 } }).toArray().catch(() => [])) as unknown as NameSeen[];
+}
+
 // Without MongoDB the rows live here and are lost on restart.
 const memory = new Map<string, Map<string, PlayerGame>>();
 
@@ -55,6 +100,8 @@ export async function indexMatch(m: MatchSummary): Promise<void> {
     tag: p.tag,
   }));
 
+  await rememberNames(rows);
+
   const coll = await collection();
   if (coll) {
     await coll
@@ -73,11 +120,12 @@ export async function indexMatch(m: MatchSummary): Promise<void> {
   }
 }
 
+/** Matches already stored for this player. Rows saved before names were kept count as missing, so they get redone. */
 export async function knownMatchIds(puuid: string, ids: string[]): Promise<Set<string>> {
   const coll = await collection();
-  if (!coll) return new Set(ids.filter((id) => memory.get(puuid)?.has(id)));
+  if (!coll) return new Set(ids.filter((id) => memory.get(puuid)?.get(id)?.name));
   const docs = await coll
-    .find({ _id: { $in: ids.map((id) => `${id}:${puuid}`) } as never }, { projection: { matchId: 1 } })
+    .find({ _id: { $in: ids.map((id) => `${id}:${puuid}`) } as never, name: { $exists: true } }, { projection: { matchId: 1 } })
     .toArray()
     .catch(() => []);
   return new Set(docs.map((d) => d.matchId as string));

@@ -149,9 +149,40 @@ async function matchSummaries() {
   const coll = await mongoCollection("match_summaries");
   if (coll && !retentionReady) {
     retentionReady = true;
-    // MongoDB drops each document once playedAt is older than the window.
+    // Before anything expires, copy every Riot ID in stored matches into the
+    // permanent name history, then let MongoDB drop details past the window.
     void coll
-      .createIndex({ playedAt: 1 }, { expireAfterSeconds: RETENTION_MS / 1000 })
+      .aggregate([
+        { $unwind: "$match.players" },
+        { $match: { "match.players.name": { $nin: ["?", "", null] } } },
+        {
+          $group: {
+            _id: {
+              $concat: [
+                "$match.players.puuid",
+                ":",
+                { $toLower: "$match.players.name" },
+                "#",
+                { $toLower: { $ifNull: ["$match.players.tag", ""] } },
+              ],
+            },
+            puuid: { $first: "$match.players.puuid" },
+            name: { $first: "$match.players.name" },
+            tag: { $first: { $ifNull: ["$match.players.tag", ""] } },
+            lastSeen: { $max: "$match.createdAt" },
+          },
+        },
+        {
+          $merge: {
+            into: "name_history",
+            on: "_id",
+            whenMatched: [{ $set: { lastSeen: { $max: ["$lastSeen", "$$new.lastSeen"] } } }],
+            whenNotMatched: "insert",
+          },
+        },
+      ])
+      .toArray()
+      .then(() => coll.createIndex({ playedAt: 1 }, { expireAfterSeconds: RETENTION_MS / 1000 }))
       .then(() =>
         // Matches saved before this existed have no playedAt yet.
         coll.updateMany({ playedAt: { $exists: false } }, [{ $set: { playedAt: { $toDate: "$match.createdAt" } } }]),
