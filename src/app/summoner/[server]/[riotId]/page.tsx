@@ -6,12 +6,12 @@ import { RememberSearch } from "@/components/profile/RememberSearch";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getDictionary } from "@/lib/i18n/server";
 import { format, timeAgo, type Dictionary } from "@/lib/i18n/dictionaries";
-import { getStaticData, type StaticData } from "@/lib/riot/ddragon";
+import { getStaticData } from "@/lib/riot/ddragon";
 import { img } from "@/lib/riot/images";
 import { errorCode } from "@/lib/riot/errors";
 import { getMatchPage, getProfile } from "@/lib/riot/player";
 import { getServer, slugToRiotId } from "@/lib/riot/servers";
-import { TIER_COLORS, compact, rankEmblem, rankLabel, winrateColor } from "@/lib/format";
+import { TIER_COLORS, rankEmblem, rankLabel, winrateColor } from "@/lib/format";
 import type { ApiErrorCode, MatchPage, Profile, RankedEntry } from "@/lib/riot/types";
 
 type Params = Promise<{ server: string; riotId: string }>;
@@ -71,7 +71,6 @@ export default async function SummonerPage({ params }: { params: Params }) {
           <>
             <RankCard title={dict.ranked_solo} entry={profile.ranked.find((r) => r.queueType === "RANKED_SOLO_5x5")} dict={dict} />
             <RankCard title={dict.ranked_flex} entry={profile.ranked.find((r) => r.queueType === "RANKED_FLEX_SR")} dict={dict} />
-            <MasteryList profile={profile} data={staticData} dict={dict} />
           </>
         }
       />
@@ -124,20 +123,15 @@ function RankCard({ title, entry, dict }: { title: string; entry?: RankedEntry; 
       <h2 className="font-display text-sm font-semibold tracking-wide text-muted">{title}</h2>
       {entry ? (
         <div className="mt-2 flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={rankEmblem(entry.tier)} alt="" className="-my-3 h-20 w-20 object-contain" />
-          <div className="flex-1">
-            <p className="font-display text-lg font-bold" style={{ color: TIER_COLORS[entry.tier] }}>
+          <Emblem tier={entry.tier} />
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg leading-tight font-bold" style={{ color: TIER_COLORS[entry.tier] }}>
               {rankLabel(entry.tier, entry.rank)}
             </p>
             <p className="tabular text-sm text-muted">{entry.leaguePoints} LP</p>
+            <p className="tabular mt-1 text-xs text-faint">{format(dict.wins_losses, { w: entry.wins, l: entry.losses })}</p>
           </div>
-          <div className="text-right text-xs">
-            <p className="tabular text-muted">{format(dict.wins_losses, { w: entry.wins, l: entry.losses })}</p>
-            <p className={`tabular font-semibold ${winrateColor(wr)}`}>
-              {dict.winrate} {wr}%
-            </p>
-          </div>
+          <WinRateDonut wr={wr} label={dict.winrate} />
         </div>
       ) : (
         <p className="mt-1.5 text-sm text-faint">{dict.unranked}</p>
@@ -146,28 +140,39 @@ function RankCard({ title, entry, dict }: { title: string; entry?: RankedEntry; 
   );
 }
 
-function MasteryList({ profile, data, dict }: { profile: Profile; data: StaticData; dict: Dictionary }) {
-  if (profile.masteries.length === 0) return null;
+/** Riot's emblem art sits small in the middle of a wide canvas, so it is drawn oversized and clipped. */
+function Emblem({ tier }: { tier: string }) {
   return (
-    <section className="rounded-xl border border-line/70 bg-panel">
-      <h2 className="border-b border-line/70 px-4 py-2.5 font-display text-sm font-semibold tracking-wide">{dict.mastery}</h2>
-      <ul className="grid grid-cols-4 gap-2 p-3">
-        {profile.masteries.slice(0, 8).map((m) => {
-          const champ = data.champions[m.championId];
-          return (
-            <li key={m.championId} className="text-center" title={champ?.name}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={champ ? img.champion(data.version, champ.id) : rankEmblem(undefined)}
-                alt={champ?.name ?? ""}
-                className="mx-auto h-11 w-11 rounded-lg"
-              />
-              <p className="tabular mt-1 text-[11px] font-semibold text-gold">{m.championLevel}</p>
-              <p className="tabular text-[10px] text-faint">{compact(m.championPoints)}</p>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <div className="relative h-20 w-24 shrink-0 overflow-hidden" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={rankEmblem(tier)}
+        alt=""
+        className="absolute top-1/2 left-1/2 h-auto max-w-none -translate-x-1/2 -translate-y-1/2"
+        style={{ width: 370 }}
+      />
+    </div>
+  );
+}
+
+function WinRateDonut({ wr, label }: { wr: number; label: string }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="relative h-16 w-16 shrink-0" role="img" aria-label={`${label} ${wr}%`}>
+      <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="var(--color-loss)" strokeOpacity="0.55" strokeWidth="7" />
+        <circle
+          cx="32"
+          cy="32"
+          r={r}
+          fill="none"
+          stroke="var(--color-win)"
+          strokeWidth="7"
+          strokeDasharray={`${(wr / 100) * c} ${c}`}
+        />
+      </svg>
+      <span className={`tabular absolute inset-0 flex items-center justify-center text-sm font-bold ${winrateColor(wr)}`}>{wr}%</span>
+    </div>
   );
 }

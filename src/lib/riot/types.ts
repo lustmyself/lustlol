@@ -10,13 +10,6 @@ export interface RankedEntry {
   hotStreak: boolean;
 }
 
-export interface Mastery {
-  championId: number;
-  championLevel: number;
-  championPoints: number;
-  lastPlayTime: number;
-}
-
 export interface Profile {
   puuid: string;
   name: string;
@@ -25,7 +18,6 @@ export interface Profile {
   level: number;
   profileIconId: number;
   ranked: RankedEntry[];
-  masteries: Mastery[];
   fetchedAt: number;
 }
 

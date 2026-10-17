@@ -2,7 +2,7 @@ import "server-only";
 import { MemoryCache, cached, mongoCollection } from "@/lib/cache";
 import { riot } from "./client";
 import { getServer, type Server } from "./servers";
-import type { MatchPage, MatchPlayer, MatchSummary, Mastery, Profile, RankedEntry, SearchSuggestion } from "./types";
+import type { MatchPage, MatchPlayer, MatchSummary, Profile, RankedEntry, SearchSuggestion } from "./types";
 
 const MINUTE = 60_000;
 const profileCache = new MemoryCache<Profile>(10 * MINUTE, 300);
@@ -42,16 +42,12 @@ export async function getProfile(serverId: string, name: string, tag: string): P
   return cached(profileCache, key, async () => {
     const account = await getAccount(server, name, tag);
     const puuid = encodeURIComponent(account.puuid);
-    const [summoner, ranked, masteries] = await Promise.all([
+    const [summoner, ranked] = await Promise.all([
       riot<{ summonerLevel: number; profileIconId: number }>(
         server.platform,
         `/lol/summoner/v4/summoners/by-puuid/${puuid}`,
       ),
       riot<RankedEntry[]>(server.platform, `/lol/league/v4/entries/by-puuid/${puuid}`).catch(() => []),
-      riot<Mastery[]>(
-        server.platform,
-        `/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=12`,
-      ).catch(() => []),
     ]);
 
     const solo = ranked.find((r) => r.queueType === "RANKED_SOLO_5x5");
@@ -80,12 +76,6 @@ export async function getProfile(serverId: string, name: string, tag: string): P
         wins: r.wins,
         losses: r.losses,
         hotStreak: r.hotStreak,
-      })),
-      masteries: masteries.map((m) => ({
-        championId: m.championId,
-        championLevel: m.championLevel,
-        championPoints: m.championPoints,
-        lastPlayTime: m.lastPlayTime,
       })),
       fetchedAt: Date.now(),
     };

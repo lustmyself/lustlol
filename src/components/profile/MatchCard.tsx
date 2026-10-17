@@ -54,7 +54,7 @@ function PlayerLink({ p, server, bold }: { p: MatchPlayer; server: string; bold?
   return (
     <Link
       href={`/summoner/${server}/${riotIdToSlug(p.name, p.tag)}`}
-      className={`truncate hover:underline ${bold ? "font-semibold text-text" : "text-muted"}`}
+      className={`block min-w-0 truncate hover:underline ${bold ? "font-semibold text-text" : "text-muted"}`}
       title={`${p.name}#${p.tag}`}
     >
       {p.name}
@@ -130,11 +130,11 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
 
           <Items items={me.items} version={assets.version} size={24} />
 
-          <div className="ml-auto hidden grid-cols-2 gap-x-3 text-[11px] lg:grid">
+          <div className="ml-auto hidden w-[13.5rem] shrink-0 grid-cols-2 gap-x-2 text-[11px] lg:grid">
             {teams.map((team, ti) => (
-              <ul key={ti} className="w-28 space-y-px">
+              <ul key={ti} className="min-w-0 space-y-px">
                 {team.map((p) => (
-                  <li key={p.puuid} className="flex items-center gap-1">
+                  <li key={p.puuid} className="flex min-w-0 items-center gap-1">
                     <Icon src={img.champion(assets.version, p.champion)} size={15} />
                     <PlayerLink p={p} server={server} bold={p.puuid === puuid} />
                   </li>

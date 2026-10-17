@@ -48,8 +48,6 @@ const tr = {
 
   champ_stats: "Şampiyon istatistikleri",
   champ_stats_note: "Yüklenen {n} maçtan",
-  mastery: "Ustalık",
-  mastery_points: "{p} puan",
   duo_title: "Birlikte oynadıkları",
   duo_note: "En az 2 maç, yüklenen maçlardan",
   duo_none: "Yüklenen maçlarda tekrar eden takım arkadaşı yok.",
@@ -165,8 +163,6 @@ const en: Dictionary = {
 
   champ_stats: "Champion stats",
   champ_stats_note: "From {n} loaded games",
-  mastery: "Mastery",
-  mastery_points: "{p} pts",
   duo_title: "Played with",
   duo_note: "2+ games, from loaded matches",
   duo_none: "No repeat teammates in the loaded matches.",

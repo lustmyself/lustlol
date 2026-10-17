@@ -93,13 +93,13 @@ export function ProfileBody({
                         {(c.cs / c.games).toFixed(0)} {t("cs")}
                       </p>
                     </div>
-                    <div className="w-20 text-center">
+                    <div className="w-20 shrink-0 text-center">
                       <p className={`tabular font-semibold ${kdaColor(c.k, c.d, c.a)}`}>{kdaRatio(c.k, c.d, c.a)}</p>
                       <p className="tabular text-faint">
                         {(c.k / c.games).toFixed(1)}/{(c.d / c.games).toFixed(1)}/{(c.a / c.games).toFixed(1)}
                       </p>
                     </div>
-                    <div className="w-12 text-right">
+                    <div className="w-16 shrink-0 text-right whitespace-nowrap">
                       <p className={`tabular font-semibold ${winrateColor(wr)}`}>{wr}%</p>
                       <p className="tabular text-faint">
                         {c.games} {t("games").toLowerCase()}
