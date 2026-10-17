@@ -139,12 +139,37 @@ export async function getFilteredMatchPage(
   };
 }
 
+/** Full match details are kept this long after the game; the compact per-player rows stay. */
+export const DETAIL_RETENTION_DAYS = 30;
+const RETENTION_MS = DETAIL_RETENTION_DAYS * 24 * 60 * 60_000;
+
+let retentionReady = false;
+
+async function matchSummaries() {
+  const coll = await mongoCollection("match_summaries");
+  if (coll && !retentionReady) {
+    retentionReady = true;
+    // MongoDB drops each document once playedAt is older than the window.
+    void coll
+      .createIndex({ playedAt: 1 }, { expireAfterSeconds: RETENTION_MS / 1000 })
+      .then(() =>
+        // Matches saved before this existed have no playedAt yet.
+        coll.updateMany({ playedAt: { $exists: false } }, [{ $set: { playedAt: { $toDate: "$match.createdAt" } } }]),
+      )
+      .catch((e) => {
+        retentionReady = false;
+        console.warn("match retention setup failed:", e.message);
+      });
+  }
+  return coll;
+}
+
 export async function getMatch(id: string, server: Server, priority: Priority = "high"): Promise<MatchSummary> {
   const fresh = (m: MatchSummary) => priority === "low" || (m.v ?? 1) >= SUMMARY_VERSION;
   const hit = matchCache.get(id);
   if (hit && fresh(hit)) return hit;
 
-  const coll = await mongoCollection("match_summaries");
+  const coll = await matchSummaries();
   const stored = (await coll?.findOne({ _id: id as never }).catch(() => null)) as { match?: MatchSummary } | null;
   if (stored?.match && fresh(stored.match)) {
     matchCache.set(id, stored.match);
@@ -154,7 +179,12 @@ export async function getMatch(id: string, server: Server, priority: Priority = 
   const raw = await riot<RawMatch>(server.region, `/lol/match/v5/matches/${encodeURIComponent(id)}`, priority);
   const match = summarize(raw);
   matchCache.set(id, match);
-  void coll?.updateOne({ _id: id as never }, { $set: { match, savedAt: new Date() } }, { upsert: true }).catch(() => {});
+  // Games already past the window would be dropped right away, so they aren't written at all.
+  if (Date.now() - match.createdAt < RETENTION_MS) {
+    void coll
+      ?.updateOne({ _id: id as never }, { $set: { match, savedAt: new Date(), playedAt: new Date(match.createdAt) } }, { upsert: true })
+      .catch(() => {});
+  }
   void indexMatch(match);
 
   for (const p of raw.info.participants) {

@@ -24,6 +24,17 @@ export async function pastNames(puuid: string, current: { name: string; tag: str
     if (!prev || prev.lastSeen < at) seen.set(key, { name, tag, lastSeen: at });
   };
 
+  // Per-player game rows are kept for good and carry the Riot ID at the time.
+  const rows = await mongoCollection("player_games");
+  if (rows) {
+    const docs = await rows
+      .find({ puuid, name: { $exists: true } }, { projection: { _id: 0, name: 1, tag: 1, createdAt: 1 } })
+      .toArray()
+      .catch(() => []);
+    for (const d of docs) add(d.name as string, (d.tag as string) ?? "", d.createdAt as number);
+  }
+
+  // Full match details only last 30 days, but cover games stored before rows had names.
   const coll = await mongoCollection("match_summaries");
   if (coll) {
     if (!indexed) {
