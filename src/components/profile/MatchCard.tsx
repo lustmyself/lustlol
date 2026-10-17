@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "../i18n";
 import { img } from "@/lib/riot/images";
 import { riotIdToSlug } from "@/lib/riot/servers";
@@ -202,7 +201,7 @@ export function MatchCard({
   lp?: number | null;
 }) {
   const { t, dict } = useI18n();
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
   const me = match.players.find((p) => p.puuid === puuid);
   if (!me) return null;
 
@@ -225,7 +224,22 @@ export function MatchCard({
   const tags = performanceTags(match, me).slice(0, 6);
 
   return (
-    <article className={`overflow-hidden rounded-xl border border-line/60 ${tone.bg}`}>
+    <article
+      role="link"
+      tabIndex={0}
+      aria-label={t("open_match")}
+      // Clicking empty space opens the match page; links, buttons and tooltips inside keep their own behaviour.
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("a, button, [tabindex]:not(article)")) return;
+        const href = `/summoner/${server}/${match.id}?p=${encodeURIComponent(puuid)}`;
+        if (e.ctrlKey || e.metaKey) window.open(href, "_blank");
+        else router.push(href);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target === e.currentTarget) router.push(`/summoner/${server}/${match.id}?p=${encodeURIComponent(puuid)}`);
+      }}
+      className={`cursor-pointer overflow-hidden rounded-xl border border-line/60 transition hover:border-gold/40 hover:brightness-110 ${tone.bg}`}
+    >
       <div className="flex">
         <div className={`w-1.5 shrink-0 ${tone.bar}`} />
         <div className="min-w-0 flex-1 p-3">
@@ -314,18 +328,8 @@ export function MatchCard({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={t("details")}
-          className={`flex w-9 shrink-0 items-end justify-center pb-3 transition hover:bg-white/5 ${tone.text}`}
-        >
-          <ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />
-        </button>
       </div>
 
-      {open && <MatchDetails match={match} puuid={puuid} server={server} assets={assets} />}
     </article>
   );
 }
@@ -471,7 +475,7 @@ function DetailRow({
   );
 }
 
-function MatchDetails({ match, puuid, server, assets }: { match: MatchSummary; puuid: string; server: string; assets: Assets }) {
+export function MatchDetails({ match, puuid, server, assets }: { match: MatchSummary; puuid: string; server: string; assets: Assets }) {
   const { t } = useI18n();
   const blue = byRole(match.players.filter((p) => p.teamId === 100));
   const red = byRole(match.players.filter((p) => p.teamId === 200));

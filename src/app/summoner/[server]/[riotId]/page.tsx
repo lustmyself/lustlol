@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { MATCH_ID, MatchView } from "@/components/match/MatchView";
 import { ProfileBody } from "@/components/profile/ProfileBody";
 import type { Assets } from "@/components/profile/MatchCard";
 import { HeaderActions } from "@/components/profile/HeaderActions";
@@ -23,6 +24,7 @@ type Params = Promise<{ server: string; riotId: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { server, riotId } = await params;
+  if (MATCH_ID.test(decodeURIComponent(riotId))) return { title: decodeURIComponent(riotId).toUpperCase() };
   const id = slugToRiotId(riotId);
   if (!id) return {};
   return {
@@ -31,9 +33,14 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export default async function SummonerPage({ params }: { params: Params }) {
+export default async function SummonerPage({ params, searchParams }: { params: Params; searchParams: Promise<{ p?: string }> }) {
   const { server: serverId, riotId } = await params;
   const server = getServer(serverId);
+  // /summoner/{server}/{matchId} is a match page; ?p= marks whose view it was opened from.
+  if (server && MATCH_ID.test(decodeURIComponent(riotId))) {
+    const [{ dict }, sp] = await Promise.all([getDictionary(), searchParams]);
+    return <MatchView server={server} matchId={decodeURIComponent(riotId)} focus={sp.p ?? ""} dict={dict} />;
+  }
   const id = slugToRiotId(riotId);
   if (!server || !id) notFound();
 
