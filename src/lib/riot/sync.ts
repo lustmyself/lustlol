@@ -25,18 +25,17 @@ interface SyncState {
 
 const states = new Map<string, SyncState>();
 
+/** Every game this season in any queue: champion stats use the ranked ones, duos use them all. */
 async function listSeasonIds(region: string, puuid: string, since: number): Promise<string[]> {
   const ids: string[] = [];
-  for (const queue of RANKED_QUEUE_IDS) {
-    for (let start = 0; ; start += 100) {
-      const page = await riot<string[]>(
-        region,
-        `/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?queue=${queue}&startTime=${Math.floor(since / 1000)}&start=${start}&count=100`,
-        "low",
-      );
-      ids.push(...page);
-      if (page.length < 100) break;
-    }
+  for (let start = 0; ; start += 100) {
+    const page = await riot<string[]>(
+      region,
+      `/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?startTime=${Math.floor(since / 1000)}&start=${start}&count=100`,
+      "low",
+    );
+    ids.push(...page);
+    if (page.length < 100) break;
   }
   return ids;
 }
@@ -91,7 +90,10 @@ export interface Duo {
   wins: number;
 }
 
-export const DUO_MIN_GAMES = 5;
+export const DUO_MIN_GAMES = 8;
+
+// Arena teams are pairs or trios inside a big lobby; 'same team' there isn't comparable.
+const ARENA_QUEUES = new Set([1700, 1710, 1750]);
 
 export interface SeasonStats {
   syncing: boolean;
@@ -101,9 +103,9 @@ export interface SeasonStats {
   duos: Duo[];
 }
 
-/** Teammates from this season's ranked games with at least DUO_MIN_GAMES together. */
+/** Teammates from this season's games in every mode but Arena, with at least DUO_MIN_GAMES together. */
 async function duos(serverId: string, puuid: string, games: PlayerGame[]): Promise<Duo[]> {
-  const mine = new Map(games.filter((g) => !g.remake).map((g) => [g.matchId, g]));
+  const mine = new Map(games.filter((g) => !g.remake && !ARENA_QUEUES.has(g.queueId)).map((g) => [g.matchId, g]));
   const others = await othersIn(puuid, [...mine.keys()]);
 
   const found = new Map<string, Duo & { lastMatch: string }>();
@@ -169,12 +171,13 @@ export async function seasonStats(serverId: string, puuid: string): Promise<Seas
     void run(serverId, puuid, state);
   }
 
-  const games = await gamesSince(puuid, seasonStart(), RANKED_QUEUE_IDS);
+  const games = await gamesSince(puuid, seasonStart());
+  const ranked = games.filter((g) => RANKED_QUEUE_IDS.includes(g.queueId));
   return {
     syncing: state.running,
     total: Math.max(state.total, games.length),
     fetched: Math.max(state.fetched, games.length),
-    champions: byChampion(games),
+    champions: byChampion(ranked),
     duos: await duos(serverId, puuid, games),
   };
 }

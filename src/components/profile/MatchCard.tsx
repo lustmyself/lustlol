@@ -53,12 +53,73 @@ function byRole(team: MatchPlayer[]): MatchPlayer[] {
   return [...team].sort((a, b) => ROLES.indexOf(a.position) - ROLES.indexOf(b.position));
 }
 
-function Stat({ big, small, className = "" }: { big: React.ReactNode; small: React.ReactNode; className?: string }) {
+function Stat({
+  big,
+  small,
+  className = "",
+  children,
+}: {
+  big: React.ReactNode;
+  small: React.ReactNode;
+  className?: string;
+  children?: React.ReactNode;
+}) {
   return (
     <div className={`shrink-0 text-center ${className}`}>
       <p className="tabular font-display text-base font-bold whitespace-nowrap">{big}</p>
       <p className="tabular text-[11px] whitespace-nowrap text-muted">{small}</p>
+      {children}
     </div>
+  );
+}
+
+function LpChip({ lp }: { lp: number | null }) {
+  const { t } = useI18n();
+  const tone = lp === null ? "bg-ink/60 text-faint" : lp > 0 ? "bg-buff/15 text-buff" : lp < 0 ? "bg-nerf/15 text-nerf" : "bg-ink/60 text-muted";
+  return (
+    <span className="group relative ml-2">
+      <span tabIndex={0} className={`tabular inline-block cursor-help rounded-md px-2 py-1 text-xs font-bold whitespace-nowrap outline-none ${tone}`}>
+        {lp === null ? "? LP" : `${lp > 0 ? "+" : ""}${lp} LP`}
+      </span>
+      <span
+        role="tooltip"
+        className="pointer-events-none invisible absolute bottom-full left-1/2 z-30 mb-2 w-60 -translate-x-1/2 rounded-lg border border-line bg-panel-2 p-2.5 text-xs leading-relaxed text-muted opacity-0 shadow-2xl shadow-black/60 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+      >
+        {lp === null ? t("lp_unknown") : t("lp_known")}
+      </span>
+    </span>
+  );
+}
+
+const TEAM_STYLE = {
+  great: "bg-teal/15 text-teal",
+  good: "bg-win/20 text-win",
+  bad: "bg-adjust/15 text-adjust",
+} as const;
+
+/** How the player's teammates (not the player) did, by their combined KDA. */
+function TeamLabel({ match, me }: { match: MatchSummary; me: MatchPlayer }) {
+  const { t } = useI18n();
+  if (match.mode === "CHERRY" || match.remake) return null;
+  const mates = match.players.filter((p) => p.teamId === me.teamId && p.puuid !== me.puuid);
+  if (mates.length === 0) return null;
+  const k = mates.reduce((s, p) => s + p.kills, 0);
+  const d = mates.reduce((s, p) => s + p.deaths, 0);
+  const a = mates.reduce((s, p) => s + p.assists, 0);
+  const kda = (k + a) / Math.max(1, d);
+  const level = kda >= 3 ? "great" : kda >= 1.8 ? "good" : "bad";
+  return (
+    <span className="group relative mt-1 inline-block">
+      <span tabIndex={0} className={`inline-block cursor-help rounded px-2 py-0.5 text-[10px] font-semibold outline-none ${TEAM_STYLE[level]}`}>
+        {t(`team_${level}`)}
+      </span>
+      <span
+        role="tooltip"
+        className="pointer-events-none invisible absolute bottom-full left-1/2 z-30 mb-2 w-56 -translate-x-1/2 rounded-lg border border-line bg-panel-2 p-2.5 text-left text-xs leading-relaxed text-muted opacity-0 shadow-2xl shadow-black/60 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+      >
+        {t("team_why", { k, d, a, kda: kda.toFixed(2) })}
+      </span>
+    </span>
   );
 }
 
@@ -126,7 +187,20 @@ function Pairs({ match, puuid, server, version }: { match: MatchSummary; puuid: 
   );
 }
 
-export function MatchCard({ match, puuid, server, assets }: { match: MatchSummary; puuid: string; server: string; assets: Assets }) {
+export function MatchCard({
+  match,
+  puuid,
+  server,
+  assets,
+  lp,
+}: {
+  match: MatchSummary;
+  puuid: string;
+  server: string;
+  assets: Assets;
+  /** LP from this game: a number, null when it can't be told, undefined when it doesn't apply. */
+  lp?: number | null;
+}) {
   const { t, dict } = useI18n();
   const [open, setOpen] = useState(false);
   const me = match.players.find((p) => p.puuid === puuid);
@@ -171,6 +245,7 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
                 <span className="tabular absolute -right-1 -bottom-1 rounded-md bg-ink px-1 text-[10px] text-muted">{me.championLevel}</span>
               </div>
               <Loadout p={me} a={assets} size={26} />
+              {lp !== undefined && <LpChip lp={lp} />}
             </div>
 
             <Stat
@@ -182,7 +257,9 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
                 </>
               }
               small={<span className={kdaColor(me.kills, me.deaths, me.assists)}>{kdaRatio(me.kills, me.deaths, me.assists)} KDA</span>}
-            />
+            >
+              <TeamLabel match={match} me={me} />
+            </Stat>
             {arena ? (
               <Stat className="w-20" big={compact(me.damage)} small={t("damage")} />
             ) : (

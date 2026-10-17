@@ -63,3 +63,31 @@ export function duration(seconds: number): string {
 export function queueKey(queueId: number): DictKey | null {
   return (QUEUE_IDS[queueId] as DictKey) ?? null;
 }
+
+const TIER_ORDER = ["IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD", "DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"];
+const DIVISIONS = ["IV", "III", "II", "I"];
+
+/** One number that orders any rank: tier, then division, then LP. */
+export function rankScore(s: { tier: string; rank: string; leaguePoints: number }): number {
+  // Master and above share one LP ladder, so they sit on the same base.
+  const tier = Math.min(TIER_ORDER.indexOf(s.tier), TIER_ORDER.indexOf("MASTER"));
+  const division = APEX.has(s.tier) ? 0 : Math.max(0, DIVISIONS.indexOf(s.rank));
+  return tier * 400 + division * 100 + s.leaguePoints;
+}
+
+/** Short label like "GM 1" or "D2" for chart points. */
+export function shortRank(s: { tier: string; rank: string }): string {
+  const short: Record<string, string> = {
+    IRON: "I",
+    BRONZE: "B",
+    SILVER: "S",
+    GOLD: "G",
+    PLATINUM: "P",
+    EMERALD: "E",
+    DIAMOND: "D",
+    MASTER: "M",
+    GRANDMASTER: "GM",
+    CHALLENGER: "C",
+  };
+  return APEX.has(s.tier) ? short[s.tier] : `${short[s.tier]}${DIVISIONS.indexOf(s.rank) >= 0 ? 4 - DIVISIONS.indexOf(s.rank) : ""}`;
+}

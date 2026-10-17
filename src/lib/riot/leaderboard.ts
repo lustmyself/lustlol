@@ -25,15 +25,18 @@ interface Who {
   top?: number[];
 }
 
-const ladderCache = new MemoryCache<LadderRow[]>(15 * 60_000, 50);
+const ladderCache = new MemoryCache<LadderRow[] & { complete?: boolean }>(15 * 60_000, 50);
+
+// Riot returns at most this many entries per league, so a full Master list means it was cut off.
+const LEAGUE_CAP = 10_000;
 const whoCache = new MemoryCache<Who>(7 * 24 * 60 * 60_000, 20_000);
 const iconQueue = new Set<string>();
 const nameQueue = new Set<string>();
 
 const accountHost = (s: Server) => (s.region === "sea" ? "asia" : s.region);
 
-/** Challenger, then Grandmaster, then Master, merged by LP and cut at MAX_RANK. */
-async function ladder(server: Server, queue: string): Promise<LadderRow[]> {
+/** Challenger, then Grandmaster, then Master, merged by LP. The full list is kept for ladder ranks. */
+async function ladder(server: Server, queue: string): Promise<LadderRow[] & { complete?: boolean }> {
   return cached(ladderCache, `${server.id}:${queue}`, async () => {
     const tiers = ["challenger", "grandmaster", "master"] as const;
     const leagues = await Promise.all(
@@ -55,7 +58,9 @@ async function ladder(server: Server, queue: string): Promise<LadderRow[]> {
       })),
     );
     if (rows.length === 0) throw new Error("empty ladder");
-    return rows.sort((a, b) => b.leaguePoints - a.leaguePoints).slice(0, MAX_RANK);
+    const sorted: LadderRow[] & { complete?: boolean } = rows.sort((a, b) => b.leaguePoints - a.leaguePoints);
+    sorted.complete = leagues.every((l) => l.entries.length < LEAGUE_CAP);
+    return sorted;
   });
 }
 
@@ -139,7 +144,7 @@ export async function getLeaderboardPage(serverId: string, queue: string, page: 
   const server = getServer(serverId);
   if (!server) throw new Error(`Unknown server ${serverId}`);
 
-  const rows = await ladder(server, queue);
+  const rows = (await ladder(server, queue)).slice(0, MAX_RANK);
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const current = Math.min(Math.max(1, page), pages);
   const start = (current - 1) * PAGE_SIZE;
@@ -197,4 +202,14 @@ export async function getLeaderboardPage(serverId: string, queue: string, page: 
       };
     }),
   };
+}
+
+/** Position on the server's Master+ ladder, or null when not in the list Riot returns. `of` is null if that list was cut off. */
+export async function getLadderRank(serverId: string, queue: string, puuid: string): Promise<{ rank: number; of: number | null } | null> {
+  const server = getServer(serverId);
+  if (!server) return null;
+  const rows = await ladder(server, queue).catch(() => null);
+  if (!rows) return null;
+  const i = rows.findIndex((r) => r.puuid === puuid);
+  return i < 0 ? null : { rank: i + 1, of: rows.complete ? rows.length : null };
 }

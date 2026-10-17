@@ -7,7 +7,9 @@ import { FilterBar, type Filters } from "./FilterBar";
 import { MatchCard, type Assets } from "./MatchCard";
 import { SeasonChampions, useSeasonStats } from "./SeasonChampions";
 import { QUEUE_IDS } from "@/lib/riot/servers";
+import { rankScore } from "@/lib/format";
 import type { DictKey } from "@/lib/i18n/dictionaries";
+import type { RankPoint } from "@/lib/riot/history";
 import type { ApiErrorCode, MatchPage, MatchSummary } from "@/lib/riot/types";
 
 const PAGE = 10;
@@ -20,6 +22,7 @@ export function ProfileBody({
   assets,
   initial,
   initialError,
+  lpPoints,
   sidebar,
 }: {
   puuid: string;
@@ -27,6 +30,7 @@ export function ProfileBody({
   assets: Assets;
   initial: MatchPage | null;
   initialError: ApiErrorCode | null;
+  lpPoints: RankPoint[];
   sidebar: React.ReactNode;
 }) {
   const { t } = useI18n();
@@ -104,7 +108,15 @@ export function ProfileBody({
 
         <div className="space-y-2">
           {matches.map((m) => (
-            <MatchCard key={m.id} match={m} puuid={puuid} server={server} assets={assets} />
+            <MatchCard
+              key={m.id}
+              match={m}
+              puuid={puuid}
+              server={server}
+              assets={assets}
+              // A filtered list hides games in between, so LP can't be attributed then.
+              lp={stored || filters.queue ? undefined : matchLp(m, matches, lpPoints)}
+            />
           ))}
         </div>
 
@@ -126,4 +138,21 @@ export function ProfileBody({
       </section>
     </div>
   );
+}
+
+/**
+ * LP from one Solo/Duo game, read from the points lustlol recorded before and
+ * after it. Returns null (shown as "? LP") unless exactly this game falls
+ * between two points; undefined for other queues.
+ */
+function matchLp(m: MatchSummary, list: MatchSummary[], points: RankPoint[]): number | null | undefined {
+  if (m.queueId !== 420 || m.remake) return undefined;
+  const before = points.filter((p) => p.at <= m.createdAt).at(-1);
+  const after = points.find((p) => p.at >= m.endedAt);
+  if (!before || !after) return null;
+  const oldest = Math.min(...list.map((x) => x.createdAt));
+  if (before.at < oldest && m.createdAt !== oldest) return null;
+  const between = list.filter((x) => x.queueId === 420 && !x.remake && x.id !== m.id && x.createdAt > before.at && x.createdAt < after.at);
+  if (between.length > 0) return null;
+  return rankScore(after) - rankScore(before);
 }

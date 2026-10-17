@@ -131,13 +131,14 @@ export async function knownMatchIds(puuid: string, ids: string[]): Promise<Set<s
   return new Set(docs.map((d) => d.matchId as string));
 }
 
-export async function gamesSince(puuid: string, since: number, queues: number[]): Promise<PlayerGame[]> {
+/** Stored games since a time; all queues unless `queues` is given. */
+export async function gamesSince(puuid: string, since: number, queues?: number[]): Promise<PlayerGame[]> {
   const coll = await collection();
   if (!coll) {
-    return [...(memory.get(puuid)?.values() ?? [])].filter((g) => g.createdAt >= since && queues.includes(g.queueId));
+    return [...(memory.get(puuid)?.values() ?? [])].filter((g) => g.createdAt >= since && (!queues || queues.includes(g.queueId)));
   }
   return (await coll
-    .find({ puuid, createdAt: { $gte: since }, queueId: { $in: queues } }, { projection: { _id: 0 } })
+    .find({ puuid, createdAt: { $gte: since }, ...(queues ? { queueId: { $in: queues } } : {}) }, { projection: { _id: 0 } })
     .toArray()
     .catch(() => [])) as unknown as PlayerGame[];
 }

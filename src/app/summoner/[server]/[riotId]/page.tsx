@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProfileBody } from "@/components/profile/ProfileBody";
-import { RefreshButton } from "@/components/profile/RefreshButton";
+import { HeaderActions } from "@/components/profile/HeaderActions";
 import { RememberSearch } from "@/components/profile/RememberSearch";
-import { SeasonBadges } from "@/components/profile/SeasonHistory";
+import { SeasonTable } from "@/components/profile/SeasonHistory";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getDictionary } from "@/lib/i18n/server";
 import { format, timeAgo, type Dictionary } from "@/lib/i18n/dictionaries";
 import { getStaticData } from "@/lib/riot/ddragon";
 import { img } from "@/lib/riot/images";
 import { errorCode } from "@/lib/riot/errors";
-import { currentSeason, getRankHistory } from "@/lib/riot/history";
+import { currentSeason, getRankHistory, getRankPoints, type RankPoint } from "@/lib/riot/history";
+import { getLadderRank } from "@/lib/riot/leaderboard";
 import { pastNames, type PastName } from "@/lib/riot/names";
 import { getMatchPage, getProfile } from "@/lib/riot/player";
 import { getServer, slugToRiotId } from "@/lib/riot/servers";
-import { TIER_COLORS, rankEmblem, rankLabel, winrateColor } from "@/lib/format";
+import { TIER_COLORS, rankEmblem, rankLabel, rankScore, winrateColor } from "@/lib/format";
 import type { ApiErrorCode, MatchPage, Profile, RankedEntry } from "@/lib/riot/types";
 
 type Params = Promise<{ server: string; riotId: string }>;
@@ -52,9 +53,13 @@ export default async function SummonerPage({ params }: { params: Params }) {
     );
   }
 
-  const [history, past] = await Promise.all([
+  const solo = profile.ranked.find((r) => r.queueType === "RANKED_SOLO_5x5");
+  const apex = solo && ["MASTER", "GRANDMASTER", "CHALLENGER"].includes(solo.tier);
+  const [history, past, points, ladder] = await Promise.all([
     getRankHistory(profile.puuid),
     pastNames(profile.puuid, { name: profile.name, tag: profile.tag }),
+    getRankPoints(profile.puuid, "RANKED_SOLO_5x5"),
+    apex ? getLadderRank(server.id, "RANKED_SOLO_5x5", profile.puuid) : Promise.resolve(null),
   ]);
 
   let initial: MatchPage | null = null;
@@ -68,7 +73,15 @@ export default async function SummonerPage({ params }: { params: Params }) {
   return (
     <div className="pt-6">
       <RememberSearch name={profile.name} tag={profile.tag} server={server.id} profileIconId={profile.profileIconId} />
-      <ProfileHeader profile={profile} past={past} serverLabel={server.label} version={staticData.version} dict={dict} />
+      <ProfileHeader
+        profile={profile}
+        past={past}
+        points={points}
+        ladder={ladder}
+        serverLabel={server.label}
+        version={staticData.version}
+        dict={dict}
+      />
       <ProfileBody
         puuid={profile.puuid}
         server={server.id}
@@ -81,10 +94,17 @@ export default async function SummonerPage({ params }: { params: Params }) {
         }}
         initial={initial}
         initialError={initialError}
+        lpPoints={points}
         sidebar={
           <>
-            <RankCard big title={dict.ranked_solo} entry={profile.ranked.find((r) => r.queueType === "RANKED_SOLO_5x5")} dict={dict}>
-              <SeasonBadges rows={history} current={currentSeason()} dict={dict} />
+            <RankCard
+              big
+              title={dict.ranked_solo}
+              entry={profile.ranked.find((r) => r.queueType === "RANKED_SOLO_5x5")}
+              dict={dict}
+              deltas={[lpDelta(points, 30), lpDelta(points, 7)]}
+            >
+              <SeasonTable rows={history} current={currentSeason()} dict={dict} />
             </RankCard>
             <RankCard title={dict.ranked_flex} entry={profile.ranked.find((r) => r.queueType === "RANKED_FLEX_SR")} dict={dict} />
           </>
@@ -97,12 +117,16 @@ export default async function SummonerPage({ params }: { params: Params }) {
 function ProfileHeader({
   profile,
   past,
+  points,
+  ladder,
   serverLabel,
   version,
   dict,
 }: {
   profile: Profile;
   past: PastName[];
+  points: RankPoint[];
+  ladder: { rank: number; of: number | null } | null;
   serverLabel: string;
   version: string;
   dict: Dictionary;
@@ -131,6 +155,17 @@ function ProfileHeader({
         </div>
         <p className="mt-1 text-sm text-muted">
           {solo ? `${rankLabel(solo.tier, solo.rank)} · ${solo.leaguePoints} LP` : dict.unranked}
+          {ladder && (
+            <>
+              <span className="mx-2 text-line">|</span>
+              {dict.ladder_rank} <span className="tabular font-semibold text-win">{ladder.rank.toLocaleString()}</span>{" "}
+              {ladder.of && (
+                <span className="text-faint">
+                  ({format(dict.ladder_top, { p: Math.max(0.01, Math.round((ladder.rank / ladder.of) * 10000) / 100) })})
+                </span>
+              )}
+            </>
+          )}
         </p>
         {past.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
@@ -147,12 +182,14 @@ function ProfileHeader({
             ))}
           </div>
         )}
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <RefreshButton server={profile.server} name={profile.name} tag={profile.tag} puuid={profile.puuid} />
-          <span className="text-xs text-faint" suppressHydrationWarning>
-            {format(dict.updated_ago, { t: timeAgo(dict, profile.fetchedAt) })}
-          </span>
-        </div>
+        <HeaderActions
+          server={profile.server}
+          name={profile.name}
+          tag={profile.tag}
+          puuid={profile.puuid}
+          updated={format(dict.updated_ago, { t: timeAgo(dict, profile.fetchedAt) })}
+          points={points}
+        />
       </div>
     </section>
   );
@@ -163,13 +200,15 @@ function RankCard({
   entry,
   dict,
   big = false,
+  deltas = [],
   children,
 }: {
   title: string;
   entry?: RankedEntry;
   dict: Dictionary;
   big?: boolean;
-  /** Shown under the emblem (season badges). */
+  deltas?: (LpDelta | null)[];
+  /** Shown under the rank (season peak and past seasons). */
   children?: React.ReactNode;
 }) {
   const games = entry ? entry.wins + entry.losses : 0;
@@ -179,10 +218,7 @@ function RankCard({
       <h2 className={`font-display font-semibold tracking-wide text-muted ${big ? "text-base" : "text-sm"}`}>{title}</h2>
       {entry ? (
         <div className={`flex ${big ? "mt-2 items-start gap-5" : "mt-2 items-center gap-3"}`}>
-          <div className="flex shrink-0 flex-col items-center gap-2">
-            <Emblem tier={entry.tier} scale={big ? 1.5 : 1} />
-            {children}
-          </div>
+          <Emblem tier={entry.tier} scale={big ? 1.5 : 1} />
           <div className={`min-w-0 flex-1 ${big ? "pt-3" : ""}`}>
             <p className={`font-display leading-tight font-bold ${big ? "text-2xl" : "text-lg"}`} style={{ color: TIER_COLORS[entry.tier] }}>
               {rankLabel(entry.tier, entry.rank)}
@@ -199,6 +235,28 @@ function RankCard({
       ) : (
         <p className="mt-1.5 text-sm text-faint">{dict.unranked}</p>
       )}
+      {entry && deltas.some(Boolean) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {deltas.map(
+            (d) =>
+              d && (
+                <span
+                  key={d.days}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-ink/60 px-2.5 py-1 text-xs"
+                  title={d.since ? format(dict.lp_since, { t: new Date(d.since).toLocaleDateString() }) : undefined}
+                >
+                  <span className="text-faint">{format(dict.lp_last_days, { n: d.days })}</span>
+                  <span className={`tabular font-semibold ${d.lp > 0 ? "text-buff" : d.lp < 0 ? "text-nerf" : "text-muted"}`}>
+                    {d.lp > 0 ? "▲" : d.lp < 0 ? "▼" : "•"} {d.lp > 0 ? "+" : ""}
+                    {d.lp} LP
+                  </span>
+                  {d.since && <span className="text-faint">*</span>}
+                </span>
+              ),
+          )}
+        </div>
+      )}
+      {children}
     </section>
   );
 }
@@ -241,4 +299,22 @@ function WinRateDonut({ wr, label, scale = 1, games }: { wr: number; label: stri
       </span>
     </div>
   );
+}
+
+interface LpDelta {
+  days: number;
+  lp: number;
+  /** Set when records don't reach back the whole window: the change is since this time. */
+  since: number | null;
+}
+
+/** LP won or lost over the last `days`, from lustlol's recorded points. */
+function lpDelta(points: RankPoint[], days: number): LpDelta | null {
+  if (points.length < 2) return null;
+  const start = Date.now() - days * 24 * 60 * 60_000;
+  const before = points.filter((p) => p.at <= start).at(-1);
+  const base = before ?? points.find((p) => p.at > start);
+  const last = points.at(-1)!;
+  if (!base || base === last) return null;
+  return { days, lp: rankScore(last) - rankScore(base), since: before ? null : base.at };
 }
