@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { LineChart } from "lucide-react";
+import { LineChart, Radio } from "lucide-react";
 import { useI18n } from "../i18n";
 import { RefreshButton } from "./RefreshButton";
 import { TierGraph } from "./TierGraph";
 import type { RankPoint } from "@/lib/riot/history";
+import { riotIdToSlug } from "@/lib/riot/servers";
 
 export function HeaderActions({
   server,
@@ -39,6 +41,13 @@ export function HeaderActions({
           <LineChart className="h-4 w-4" />
           {t("tier_graph")}
         </button>
+        <Link
+          href={`/live/${server}/${riotIdToSlug(name, tag)}`}
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-muted transition hover:border-loss/50 hover:text-text"
+        >
+          <Radio className="h-4 w-4" />
+          {t("live_game")}
+        </Link>
         <span className="text-xs text-faint" suppressHydrationWarning>
           {updated}
         </span>

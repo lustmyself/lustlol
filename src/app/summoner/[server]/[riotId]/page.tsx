@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProfileBody } from "@/components/profile/ProfileBody";
+import type { Assets } from "@/components/profile/MatchCard";
 import { HeaderActions } from "@/components/profile/HeaderActions";
 import { RememberSearch } from "@/components/profile/RememberSearch";
 import { SeasonTable } from "@/components/profile/SeasonHistory";
@@ -62,6 +63,14 @@ export default async function SummonerPage({ params }: { params: Params }) {
     apex ? getLadderRank(server.id, "RANKED_SOLO_5x5", profile.puuid) : Promise.resolve(null),
   ]);
 
+  const assets: Assets = {
+    version: staticData.version,
+    spells: staticData.spells,
+    runes: staticData.runes,
+    names: Object.fromEntries(Object.values(staticData.champions).map((c) => [c.id, c.name])),
+    byKey: Object.fromEntries(Object.entries(staticData.champions).map(([key, c]) => [key, c.id])),
+  };
+
   let initial: MatchPage | null = null;
   let initialError: ApiErrorCode | null = null;
   try {
@@ -85,13 +94,7 @@ export default async function SummonerPage({ params }: { params: Params }) {
       <ProfileBody
         puuid={profile.puuid}
         server={server.id}
-        assets={{
-          version: staticData.version,
-          spells: staticData.spells,
-          runes: staticData.runes,
-          names: Object.fromEntries(Object.values(staticData.champions).map((c) => [c.id, c.name])),
-          byKey: Object.fromEntries(Object.entries(staticData.champions).map(([key, c]) => [key, c.id])),
-        }}
+        assets={assets}
         initial={initial}
         initialError={initialError}
         lpPoints={points}
