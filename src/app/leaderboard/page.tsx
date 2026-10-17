@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getDictionary } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/dictionaries";
-import { latestVersion } from "@/lib/riot/ddragon";
+import { getStaticData } from "@/lib/riot/ddragon";
 import { errorCode } from "@/lib/riot/errors";
 import { getLeaderboardPage, type LeaderboardPage } from "@/lib/riot/leaderboard";
 import { DEFAULT_SERVER, RANKED_QUEUES, SERVERS, getServer, type RankedQueueKey } from "@/lib/riot/servers";
@@ -18,7 +18,9 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const sp = await searchParams;
   const server = getServer(sp.server) ?? getServer(DEFAULT_SERVER)!;
   const queueKey: RankedQueueKey = sp.queue === "flex" ? "flex" : "solo";
-  const [{ dict }, version] = await Promise.all([getDictionary(), latestVersion()]);
+  const [{ dict }, data] = await Promise.all([getDictionary(), getStaticData()]);
+  const version = data.version;
+  const byKey = Object.fromEntries(Object.entries(data.champions).map(([key, c]) => [key, c.id]));
 
   let board: LeaderboardPage;
   try {
@@ -63,8 +65,8 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         ))}
       </div>
 
-      <RefreshWhile active={board.entries.some((e) => !e.name || e.profileIconId === null)} />
-      <LeaderboardTable entries={board.entries} server={server.id} version={version} dict={dict} />
+      <RefreshWhile active={board.entries.some((e) => !e.name || e.profileIconId === null || !e.topChampions)} />
+      <LeaderboardTable entries={board.entries} server={server.id} version={version} dict={dict} byKey={byKey} />
 
       {board.pages > 1 && (
         <nav className="flex flex-wrap items-center justify-center gap-1" aria-label="pages">

@@ -1,4 +1,4 @@
-import { getMatchPage } from "@/lib/riot/player";
+import { getFilteredMatchPage, getMatchPage } from "@/lib/riot/player";
 import { errorResponse } from "@/lib/riot/errors";
 import { getServer } from "@/lib/riot/servers";
 
@@ -11,7 +11,12 @@ export async function GET(req: Request) {
   const start = Math.max(0, Number(url.searchParams.get("start")) || 0);
   const count = Math.min(20, Math.max(1, Number(url.searchParams.get("count")) || 10));
   const queue = Number(url.searchParams.get("queue")) || undefined;
+  const champion = url.searchParams.get("champion") || undefined;
+  const withPuuid = url.searchParams.get("with") || undefined;
   try {
+    if (champion || withPuuid) {
+      return Response.json(await getFilteredMatchPage(server.id, puuid, { champion, withPuuid, queue }, start, count));
+    }
     return Response.json(await getMatchPage(server.id, puuid, start, count, queue));
   } catch (e) {
     return errorResponse(e);

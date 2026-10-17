@@ -88,6 +88,10 @@ export interface MatchTeam {
   towers: number;
   dragons: number;
   barons: number;
+  /** Missing on matches stored before bans were kept. */
+  bans?: number[];
+  heralds?: number;
+  grubs?: number;
 }
 
 export interface MatchSummary {
@@ -117,6 +121,8 @@ export interface LeaderboardEntry {
   name: string | null;
   tag: string | null;
   profileIconId: number | null;
+  /** Champion keys with the most mastery points; null until fetched. */
+  topChampions: number[] | null;
   leaguePoints: number;
   wins: number;
   losses: number;

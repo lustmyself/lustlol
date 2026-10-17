@@ -21,6 +21,8 @@ interface Who {
   name: string;
   tag: string;
   icon: number | null;
+  /** Champion keys with the most mastery points, best first. */
+  top?: number[];
 }
 
 const ladderCache = new MemoryCache<LadderRow[]>(15 * 60_000, 50);
@@ -69,7 +71,7 @@ async function storedWho(puuids: string[]): Promise<Map<string, Who>> {
   if (coll && missing.length) {
     const docs = await coll.find({ _id: { $in: missing } as never }).toArray().catch(() => []);
     for (const d of docs) {
-      const who = { name: d.name as string, tag: d.tag as string, icon: (d.icon as number) ?? null };
+      const who = { name: d.name as string, tag: d.tag as string, icon: (d.icon as number) ?? null, top: d.top as number[] | undefined };
       whoCache.set(d._id as unknown as string, who);
       found.set(d._id as unknown as string, who);
     }
@@ -83,17 +85,27 @@ async function saveWho(puuid: string, who: Who) {
   await coll?.updateOne({ _id: puuid as never }, { $set: { ...who, at: new Date() } }, { upsert: true }).catch(() => {});
 }
 
-/** Icons cost a second request per player, so they are filled in behind the page at low priority. */
+/** Icon and top champions cost two more requests per player, so they are filled in behind the page at low priority. */
 function queueIcons(server: Server, puuids: string[]) {
   for (const puuid of puuids) {
     if (iconQueue.has(puuid)) continue;
     iconQueue.add(puuid);
-    void riot<{ profileIconId: number }>(server.platform, `/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`, "low")
-      .then(async (s) => {
+    const id = encodeURIComponent(puuid);
+    void Promise.all([
+      riot<{ profileIconId: number }>(server.platform, `/lol/summoner/v4/summoners/by-puuid/${id}`, "low").catch(() => null),
+      riot<{ championId: number }[]>(server.platform, `/lol/champion-mastery/v4/champion-masteries/by-puuid/${id}/top?count=5`, "low").catch(
+        () => null,
+      ),
+    ])
+      .then(async ([summoner, mastery]) => {
         const who = whoCache.get(puuid);
-        if (who) await saveWho(puuid, { ...who, icon: s.profileIconId });
+        if (!who) return;
+        await saveWho(puuid, {
+          ...who,
+          icon: summoner?.profileIconId ?? who.icon,
+          top: mastery ? mastery.map((m) => m.championId) : who.top,
+        });
       })
-      .catch(() => {})
       .finally(() => iconQueue.delete(puuid));
   }
 }
@@ -153,7 +165,12 @@ export async function getLeaderboardPage(serverId: string, queue: string, page: 
   );
   queueIcons(
     server,
-    slice.filter((r) => known.get(r.puuid) && known.get(r.puuid)!.icon === null).map((r) => r.puuid),
+    slice
+      .filter((r) => {
+        const who = known.get(r.puuid);
+        return who && (who.icon === null || !who.top);
+      })
+      .map((r) => r.puuid),
   );
 
   for (const r of slice) {
@@ -172,6 +189,7 @@ export async function getLeaderboardPage(serverId: string, queue: string, page: 
         name: who?.name ?? null,
         tag: who?.tag ?? null,
         profileIconId: who?.icon ?? null,
+        topChampions: who?.top ?? null,
         leaguePoints: r.leaguePoints,
         wins: r.wins,
         losses: r.losses,

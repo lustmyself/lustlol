@@ -1,17 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useI18n } from "../i18n";
+import { FilterBar, type Filters } from "./FilterBar";
 import { MatchCard, type Assets } from "./MatchCard";
-import { SeasonChampions } from "./SeasonChampions";
+import { SeasonChampions, useSeasonStats } from "./SeasonChampions";
 import { QUEUE_IDS } from "@/lib/riot/servers";
-import { kdaColor, kdaRatio, winrateColor } from "@/lib/format";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 import type { ApiErrorCode, MatchPage, MatchSummary } from "@/lib/riot/types";
 
 const PAGE = 10;
-const FILTERS = [0, 420, 440, 400, 450, 1750];
+const QUEUES = [420, 440, 400, 490, 450, 1750];
+const NO_FILTER: Filters = { champion: "", queue: "", with: "" };
 
 export function ProfileBody({
   puuid,
@@ -29,18 +30,21 @@ export function ProfileBody({
   sidebar: React.ReactNode;
 }) {
   const { t } = useI18n();
-  const [queue, setQueue] = useState(0);
+  const season = useSeasonStats(server, puuid);
+  const [filters, setFilters] = useState<Filters>(NO_FILTER);
   const [matches, setMatches] = useState<MatchSummary[]>(initial?.matches ?? []);
   const [next, setNext] = useState<number | null>(initial?.next ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiErrorCode | null>(initialError);
 
-  async function load(q: number, start: number) {
+  async function load(f: Filters, start: number) {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams({ server, puuid, start: String(start), count: String(PAGE) });
-      if (q) params.set("queue", String(q));
+      if (f.queue) params.set("queue", f.queue);
+      if (f.champion) params.set("champion", f.champion);
+      if (f.with) params.set("with", f.with);
       const res = await fetch(`/api/matches?${params}`);
       const body = await res.json();
       if (!res.ok) throw body.error ?? "unavailable";
@@ -58,44 +62,37 @@ export function ProfileBody({
     }
   }
 
-  const stats = useMemo(() => summarize(matches, puuid), [matches, puuid]);
+  const stored = Boolean(filters.champion || filters.with);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,980px)_minmax(0,1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
       <aside className="space-y-4 xl:col-start-2 xl:row-start-1">
         {sidebar}
-
-        <SeasonChampions server={server} puuid={puuid} version={assets.version} names={assets.names} />
-
+        <SeasonChampions data={season} server={server} version={assets.version} names={assets.names} />
       </aside>
 
       <section className="min-w-0 space-y-3 xl:col-start-1 xl:row-start-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="mr-2 font-display text-lg font-semibold">{t("matches")}</h2>
-          {FILTERS.map((q) => (
-            <button
-              key={q}
-              type="button"
-              disabled={loading}
-              onClick={() => {
-                setQueue(q);
-                void load(q, 0);
-              }}
-              className={`rounded-full border px-3 py-1 text-xs transition ${
-                queue === q ? "border-gold/60 bg-gold/10 text-gold" : "border-line text-muted hover:text-text"
-              }`}
-            >
-              {q === 0 ? t("all_queues") : t(QUEUE_IDS[q] as DictKey)}
-            </button>
-          ))}
-        </div>
+        <h2 className="font-display text-lg font-semibold">{t("matches")}</h2>
 
-        {stats.games > 0 && <FormStrip stats={stats} />}
+        <FilterBar
+          value={filters}
+          onChange={(f) => {
+            setFilters(f);
+            setMatches([]);
+            void load(f, 0);
+          }}
+          version={assets.version}
+          names={assets.names}
+          queues={QUEUES.map((id) => ({ id, label: t(QUEUE_IDS[id] as DictKey) }))}
+          partners={season?.duos ?? []}
+          disabled={loading}
+        />
+        {stored && <p className="text-[11px] text-faint">{t("filter_stored_note")}</p>}
 
         {error && (
           <div className="rounded-xl border border-loss/40 bg-loss-bg/60 p-4 text-sm text-loss">
             {t(`err_${error}` as DictKey)}{" "}
-            <button type="button" className="underline" onClick={() => load(queue, matches.length && next ? next : 0)}>
+            <button type="button" className="underline" onClick={() => load(filters, matches.length && next ? next : 0)}>
               {t("try_again")}
             </button>
           </div>
@@ -120,7 +117,7 @@ export function ProfileBody({
         {!loading && next !== null && matches.length > 0 && (
           <button
             type="button"
-            onClick={() => load(queue, next)}
+            onClick={() => load(filters, next)}
             className="w-full rounded-xl border border-line bg-panel py-3 text-sm text-muted transition hover:border-gold/50 hover:text-gold"
           >
             {t("load_more")}
@@ -129,63 +126,4 @@ export function ProfileBody({
       </section>
     </div>
   );
-}
-
-function FormStrip({ stats }: { stats: Stats }) {
-  const { t } = useI18n();
-  const wr = Math.round((stats.wins / stats.games) * 100);
-  return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-line/70 bg-panel px-4 py-3">
-      <div className="text-xs text-muted">
-        <p>{t("recent_form", { n: stats.games })}</p>
-        <p className="tabular">
-          {t("wins_losses", { w: stats.wins, l: stats.games - stats.wins })} ·{" "}
-          <span className={`font-semibold ${winrateColor(wr)}`}>{wr}%</span>
-        </p>
-      </div>
-      <div className="text-xs">
-        <p className="tabular font-display text-base font-bold">
-          {(stats.k / stats.games).toFixed(1)} / <span className="text-loss">{(stats.d / stats.games).toFixed(1)}</span> /{" "}
-          {(stats.a / stats.games).toFixed(1)}
-        </p>
-        <p className={`tabular font-semibold ${kdaColor(stats.k, stats.d, stats.a)}`}>
-          {kdaRatio(stats.k, stats.d, stats.a)} {t("kda")}
-        </p>
-      </div>
-      <div className="ml-auto flex gap-1" aria-hidden>
-        {stats.form.slice(0, 20).map((w, i) => (
-          <span key={i} className={`h-6 w-1.5 rounded-full ${w ? "bg-win" : "bg-loss"}`} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-interface Stats {
-  games: number;
-  wins: number;
-  k: number;
-  d: number;
-  a: number;
-  form: boolean[];
-}
-
-function summarize(matches: MatchSummary[], puuid: string): Stats {
-  const s: Stats = { games: 0, wins: 0, k: 0, d: 0, a: 0, form: [] };
-
-  for (const m of matches) {
-    if (m.remake) continue;
-    const me = m.players.find((p) => p.puuid === puuid);
-    if (!me) continue;
-    s.games++;
-    s.wins += me.win ? 1 : 0;
-    s.k += me.kills;
-    s.d += me.deaths;
-    s.a += me.assists;
-    s.form.push(me.win);
-
-
-  }
-
-  return s;
 }

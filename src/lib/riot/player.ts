@@ -2,7 +2,7 @@ import "server-only";
 import { MemoryCache, cached, mongoCollection } from "@/lib/cache";
 import { riot, type Priority } from "./client";
 import { recordRanks } from "./history";
-import { indexMatch } from "./games";
+import { filteredMatchIds, indexMatch, type GameFilter } from "./games";
 import { getServer, type Server } from "./servers";
 import type { MatchPage, MatchPlayer, MatchSummary, Profile, RankedEntry, SearchSuggestion } from "./types";
 
@@ -11,6 +11,10 @@ const SUMMARY_VERSION = 2;
 const profileCache = new MemoryCache<Profile>(10 * MINUTE, 300);
 const idCache = new MemoryCache<string[]>(3 * MINUTE, 500);
 const matchCache = new MemoryCache<MatchSummary>(24 * 60 * MINUTE, 3000);
+
+export function matchesInMemory(): MatchSummary[] {
+  return matchCache.values();
+}
 
 /** Everyone we've seen in a profile or a match, for search suggestions. */
 export const knownPlayers = new MemoryCache<SearchSuggestion>(7 * 24 * 60 * MINUTE, 20_000);
@@ -116,6 +120,25 @@ export async function getMatchPage(
   };
 }
 
+/** Pages through stored games when filtering by things Riot's match list can't (champion, teammate). */
+export async function getFilteredMatchPage(
+  serverId: string,
+  puuid: string,
+  filter: GameFilter,
+  start: number,
+  count: number,
+): Promise<MatchPage> {
+  const server = getServer(serverId);
+  if (!server) throw new Error(`Unknown server ${serverId}`);
+  const ids = await filteredMatchIds(puuid, filter);
+  const page = ids.slice(start, start + count);
+  const matches = await Promise.all(page.map((id) => getMatch(id, server).catch(() => null)));
+  return {
+    matches: matches.filter((m): m is MatchSummary => m !== null),
+    next: start + count < ids.length ? start + count : null,
+  };
+}
+
 export async function getMatch(id: string, server: Server, priority: Priority = "high"): Promise<MatchSummary> {
   const fresh = (m: MatchSummary) => priority === "low" || (m.v ?? 1) >= SUMMARY_VERSION;
   const hit = matchCache.get(id);
@@ -196,6 +219,7 @@ interface RawMatch {
       teamId: number;
       win: boolean;
       objectives: Record<string, { kills: number }>;
+      bans?: { championId: number }[];
     }[];
   };
 }
@@ -259,6 +283,9 @@ function summarize(raw: RawMatch): MatchSummary {
       towers: t.objectives.tower?.kills ?? 0,
       dragons: t.objectives.dragon?.kills ?? 0,
       barons: t.objectives.baron?.kills ?? 0,
+      heralds: t.objectives.riftHerald?.kills ?? 0,
+      grubs: t.objectives.horde?.kills ?? 0,
+      bans: (t.bans ?? []).map((b) => b.championId).filter((id) => id > 0),
     })),
     players,
   };

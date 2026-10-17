@@ -109,3 +109,40 @@ export async function othersIn(puuid: string, matchIds: string[]): Promise<Playe
     .toArray()
     .catch(() => [])) as unknown as PlayerGame[];
 }
+
+export interface GameFilter {
+  champion?: string;
+  queue?: number;
+  /** Only games where this player was on the same team. */
+  withPuuid?: string;
+}
+
+/** Stored games of one player matching the filter, newest first. */
+export async function filteredMatchIds(puuid: string, f: GameFilter): Promise<string[]> {
+  const coll = await collection();
+  let mine: PlayerGame[];
+  if (coll) {
+    const query: Record<string, unknown> = { puuid };
+    if (f.champion) query.champion = f.champion;
+    if (f.queue) query.queueId = f.queue;
+    mine = (await coll
+      .find(query, { projection: { _id: 0, matchId: 1, createdAt: 1, teamId: 1, win: 1 } })
+      .toArray()
+      .catch(() => [])) as unknown as PlayerGame[];
+  } else {
+    mine = [...(memory.get(puuid)?.values() ?? [])].filter(
+      (g) => (!f.champion || g.champion === f.champion) && (!f.queue || g.queueId === f.queue),
+    );
+  }
+
+  if (f.withPuuid) {
+    const theirs = new Map((await othersIn(puuid, mine.map((g) => g.matchId))).filter((o) => o.puuid === f.withPuuid).map((o) => [o.matchId, o]));
+    mine = mine.filter((g) => {
+      const o = theirs.get(g.matchId);
+      if (!o) return false;
+      return o.teamId !== undefined && g.teamId !== undefined ? o.teamId === g.teamId : o.win === g.win;
+    });
+  }
+
+  return mine.sort((a, b) => b.createdAt - a.createdAt).map((g) => g.matchId);
+}

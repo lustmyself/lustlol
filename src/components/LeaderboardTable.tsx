@@ -11,12 +11,15 @@ export function LeaderboardTable({
   server,
   version,
   dict,
+  byKey = {},
   compact = false,
 }: {
   entries: LeaderboardEntry[];
   server: string;
   version: string;
   dict: Dictionary;
+  /** Champion key -> Data Dragon id, for the most played column. */
+  byKey?: Record<number, string>;
   compact?: boolean;
 }) {
   return (
@@ -28,6 +31,11 @@ export function LeaderboardTable({
             <th className="py-2.5">{dict.player}</th>
             {!compact && <th className="hidden py-2.5 md:table-cell">{dict.tier}</th>}
             <th className="py-2.5 text-right">{dict.lp}</th>
+            {!compact && (
+              <th className="hidden py-2.5 pl-8 lg:table-cell" title={dict.most_played_note}>
+                {dict.most_played}
+              </th>
+            )}
             {!compact && <th className="hidden py-2.5 text-right sm:table-cell">{dict.games}</th>}
             <th className="py-2.5 pr-4 text-right">{dict.winrate}</th>
           </tr>
@@ -66,6 +74,33 @@ export function LeaderboardTable({
                   </td>
                 )}
                 <td className="tabular py-2 text-right font-semibold text-gold">{e.leaguePoints.toLocaleString()}</td>
+                {!compact && (
+                  <td className="hidden py-2 pl-8 lg:table-cell">
+                    {e.topChampions ? (
+                      <div className="flex gap-1">
+                        {e.topChampions.map((key) =>
+                          byKey[key] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={key}
+                              src={img.champion(version, byKey[key])}
+                              alt={byKey[key]}
+                              title={byKey[key]}
+                              className="h-6 w-6 rounded-md"
+                              loading="lazy"
+                            />
+                          ) : null,
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex gap-1">
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <span key={i} className="skeleton h-6 w-6 rounded-md" />
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                )}
                 {!compact && <td className="tabular hidden py-2 text-right text-muted sm:table-cell">{games}</td>}
                 <td className={`tabular py-2 pr-4 text-right font-semibold ${winrateColor(wr)}`}>{wr}%</td>
               </tr>

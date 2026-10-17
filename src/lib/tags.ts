@@ -4,9 +4,14 @@ import type { MatchPlayer, MatchSummary } from "./riot/types";
 export interface Tag {
   key: DictKey;
   tone: "good" | "bad";
+  /** Hover text explaining the verdict, with the numbers behind it. */
+  why: DictKey;
+  vars: Record<string, string | number>;
 }
 
 const NO_LANE_QUEUES = new Set([450, 900, 1700, 1710, 1750]); // ARAM, URF, Arena
+
+const pct = (x: number) => Math.round(x * 100);
 
 /** Short verdicts on one player's game, good ones first. Needs a v2 summary. */
 export function performanceTags(m: MatchSummary, p: MatchPlayer): Tag[] {
@@ -21,6 +26,25 @@ export function performanceTags(m: MatchSummary, p: MatchPlayer): Tag[] {
   const kda = p.deaths === 0 ? p.kills + p.assists : (p.kills + p.assists) / p.deaths;
   // Arena pairs make team-share numbers meaningless; only judge the fight itself.
   const teamGame = m.mode !== "CHERRY";
+  const vars = {
+    k: p.kills,
+    d: p.deaths,
+    a: p.assists,
+    kda: kda.toFixed(2),
+    dmg: pct(x.damageShare),
+    kp: pct(x.killParticipation),
+    solo: x.soloKills,
+    csAdv: x.csAdvantage,
+    lvl: x.levelLead,
+    cspm: csPerMin.toFixed(1),
+    turrets: x.turretTakedowns,
+    plates: x.platesTaken,
+    barons: x.baronTakedowns,
+    dragons: x.dragonTakedowns,
+    vpm: x.visionPerMin.toFixed(2),
+    wards: x.controlWards,
+    min: Math.round(minutes),
+  };
 
   const good: [boolean, DictKey][] = [
     [p.deaths === 0 && p.kills + p.assists >= 3, "tag_unkillable"],
@@ -45,8 +69,8 @@ export function performanceTags(m: MatchSummary, p: MatchPlayer): Tag[] {
     [teamGame && x.killParticipation > 0 && x.killParticipation < 0.3, "tag_low_kp"],
   ];
 
-  return [
-    ...good.filter(([on]) => on).map(([, key]) => ({ key, tone: "good" as const })),
-    ...bad.filter(([on]) => on).map(([, key]) => ({ key, tone: "bad" as const })),
-  ];
+  const make =
+    (tone: Tag["tone"]) =>
+    ([, key]: [boolean, DictKey]): Tag => ({ key, tone, why: `${key}_why` as DictKey, vars });
+  return [...good.filter(([on]) => on).map(make("good")), ...bad.filter(([on]) => on).map(make("bad"))];
 }

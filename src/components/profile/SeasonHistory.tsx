@@ -9,17 +9,13 @@ const QUEUES: Record<string, keyof Dictionary> = {
 
 const label = (s: TierStep) => `${rankLabel(s.tier, s.rank)} ${s.leaguePoints} LP`;
 
-export function SeasonHistory({ rows, current, dict }: { rows: SeasonRank[]; current: string; dict: Dictionary }) {
+/** Season badges with a hover card; sits under the emblem in the Solo/Duo card. */
+export function SeasonBadges({ rows, current, dict }: { rows: SeasonRank[]; current: string; dict: Dictionary }) {
   const seasons = [...new Set(rows.map((r) => r.season))];
   if (seasons.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-line/70 bg-panel">
-      <header className="flex items-baseline justify-between gap-2 border-b border-line/70 px-4 py-2.5">
-        <h2 className="font-display text-sm font-semibold tracking-wide">{dict.season_history}</h2>
-        <span className="text-[11px] text-faint">{dict.season_history_note}</span>
-      </header>
-      <ul className="flex flex-wrap gap-2 p-3">
+    <ul className="flex flex-wrap justify-center gap-1.5" aria-label={dict.season_history}>
         {seasons.map((season) => {
           const queues = rows.filter((r) => r.season === season && QUEUES[r.queueType]);
           const solo = queues.find((r) => r.queueType === "RANKED_SOLO_5x5") ?? queues[0];
@@ -52,7 +48,6 @@ export function SeasonHistory({ rows, current, dict }: { rows: SeasonRank[]; cur
             </li>
           );
         })}
-      </ul>
-    </section>
+    </ul>
   );
 }

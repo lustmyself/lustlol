@@ -9,7 +9,7 @@ import { riotIdToSlug } from "@/lib/riot/servers";
 import { compact, duration, kdaColor, kdaRatio, queueKey } from "@/lib/format";
 import { timeAgo, type DictKey } from "@/lib/i18n/dictionaries";
 import { performanceTags } from "@/lib/tags";
-import type { MatchPlayer, MatchSummary } from "@/lib/riot/types";
+import type { MatchPlayer, MatchSummary, MatchTeam } from "@/lib/riot/types";
 
 export interface Assets {
   version: string;
@@ -17,22 +17,14 @@ export interface Assets {
   runes: Record<number, string>;
   /** Data Dragon id -> display name, e.g. "MonkeyKing" -> "Wukong" */
   names: Record<string, string>;
+  /** Numeric champion key (as in bans) -> Data Dragon id */
+  byKey: Record<number, string>;
 }
 
 function Icon({ src, size, className = "" }: { src: string | null; size: number; className?: string }) {
   if (!src) return <span className={`inline-block shrink-0 rounded bg-ink ${className}`} style={{ width: size, height: size }} />;
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt="" width={size} height={size} loading="lazy" className={`shrink-0 rounded ${className}`} />;
-}
-
-function Items({ items, version, size }: { items: number[]; version: string; size: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {items.map((id, i) => (
-        <Icon key={i} src={id ? img.item(version, id) : null} size={size} className={i === 6 ? "ml-0.5 rounded-full" : ""} />
-      ))}
-    </div>
-  );
 }
 
 function Loadout({ p, a, size }: { p: MatchPlayer; a: Assets; size: number }) {
@@ -49,19 +41,6 @@ function Loadout({ p, a, size }: { p: MatchPlayer; a: Assets; size: number }) {
         <Icon src={rune(p.secondaryStyle)} size={size} className="rounded-full bg-ink p-0.5" />
       </div>
     </div>
-  );
-}
-
-function PlayerLink({ p, server, bold }: { p: MatchPlayer; server: string; bold?: boolean }) {
-  if (p.name === "?") return <span className="truncate text-faint">?</span>;
-  return (
-    <Link
-      href={`/summoner/${server}/${riotIdToSlug(p.name, p.tag)}`}
-      className={`block min-w-0 truncate hover:underline ${bold ? "font-semibold text-text" : "text-muted"}`}
-      title={`${p.name}#${p.tag}`}
-    >
-      {p.name}
-    </Link>
   );
 }
 
@@ -175,7 +154,7 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
     <article className={`overflow-hidden rounded-xl border border-line/60 ${tone.bg}`}>
       <div className="flex">
         <div className={`w-1.5 shrink-0 ${tone.bar}`} />
-        <div className="min-w-0 flex-1 p-3 md:flex-none">
+        <div className="min-w-0 flex-1 p-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <span className={`font-display text-sm font-bold ${tone.text}`}>{label}</span>
             <span className="font-semibold text-text">{qk ? t(qk) : match.mode}</span>
@@ -185,7 +164,7 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
             </span>
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-7 gap-y-3">
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 pr-2">
             <div className="flex shrink-0 items-center gap-1.5">
               <div className="relative">
                 <Icon src={img.champion(assets.version, me.champion)} size={56} className="rounded-lg" />
@@ -226,20 +205,31 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
           {tags.length > 0 && (
             <ul className="mt-2.5 flex flex-wrap gap-1.5">
               {tags.map((tag) => (
-                <li
-                  key={tag.key}
-                  className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
-                    tag.tone === "good" ? "border-buff/40 bg-buff/10 text-buff" : "border-nerf/40 bg-nerf/10 text-nerf"
-                  }`}
-                >
-                  {t(tag.key, { c: champName })}
+                <li key={tag.key} className="group relative">
+                  <span
+                    tabIndex={0}
+                    className={`inline-block cursor-help rounded-md border px-2 py-0.5 text-[11px] font-medium outline-none ${
+                      tag.tone === "good" ? "border-buff/40 bg-buff/10 text-buff" : "border-nerf/40 bg-nerf/10 text-nerf"
+                    }`}
+                  >
+                    {t(tag.key, { c: champName })}
+                  </span>
+                  <div
+                    role="tooltip"
+                    className="pointer-events-none invisible absolute bottom-full left-0 z-30 mb-2 w-72 rounded-lg border border-line bg-panel-2 p-3 opacity-0 shadow-2xl shadow-black/60 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+                  >
+                    <p className={`font-display text-sm font-semibold ${tag.tone === "good" ? "text-buff" : "text-nerf"}`}>
+                      {t(tag.key, { c: champName })}
+                    </p>
+                    <p className="mt-1.5 text-xs leading-relaxed text-muted">{t(tag.why, tag.vars)}</p>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        <div className="hidden w-[23rem] shrink-0 self-center border-l border-line/40 px-3 py-2 md:ml-auto md:block">
+        <div className="hidden w-[24rem] shrink-0 self-center border-l border-line/40 px-3 py-2 md:block">
           {arena ? (
             <Pairs match={match} puuid={puuid} server={server} version={assets.version} />
           ) : (
@@ -263,75 +253,240 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
   );
 }
 
-function MatchDetails({ match, puuid, server, assets }: { match: MatchSummary; puuid: string; server: string; assets: Assets }) {
+function teamTotals(players: MatchPlayer[]) {
+  return players.reduce((t, p) => ({ k: t.k + p.kills, d: t.d + p.deaths, a: t.a + p.assists }), { k: 0, d: 0, a: 0 });
+}
+
+function Objectives({ team, align }: { team?: MatchTeam; align: "left" | "right" }) {
   const { t } = useI18n();
-  const maxDamage = Math.max(...match.players.map((p) => p.damage), 1);
+  if (!team) return <span />;
+  const items: [string, number | undefined][] = [
+    [t("towers"), team.towers],
+    [t("dragons"), team.dragons],
+    [t("barons"), team.barons],
+    [t("heralds"), team.heralds],
+    [t("grubs"), team.grubs],
+  ];
+  return (
+    <div className={`flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted ${align === "right" ? "justify-end" : ""}`}>
+      {items
+        .filter(([, n]) => n !== undefined)
+        .map(([label, n]) => (
+          <span key={label}>
+            <span className="tabular font-semibold text-text">{n}</span> {label}
+          </span>
+        ))}
+    </div>
+  );
+}
+
+/** One player, laid out toward the middle: `side` is the team's edge of the card. */
+function DetailRow({
+  p,
+  side,
+  match,
+  puuid,
+  server,
+  assets,
+  maxDamage,
+  teamKills,
+}: {
+  p: MatchPlayer;
+  side: "left" | "right";
+  match: MatchSummary;
+  puuid: string;
+  server: string;
+  assets: Assets;
+  maxDamage: number;
+  teamKills: number;
+}) {
+  const { t } = useI18n();
   const minutes = match.duration / 60;
+  const mine = p.puuid === puuid;
+  const kp = teamKills ? Math.round(((p.kills + p.assists) / teamKills) * 100) : 0;
+  const right = side === "right";
+  const bar = p.teamId === 100 ? "bg-win" : "bg-loss";
+
+  const who = (
+    <div className={`flex min-w-0 items-center gap-2 ${right ? "flex-row-reverse text-right" : ""}`}>
+      <div className="relative shrink-0">
+        <Icon src={img.champion(assets.version, p.champion)} size={36} className={`rounded-lg ${mine ? "ring-2 ring-gold" : ""}`} />
+        <span className="tabular absolute -bottom-1 rounded bg-ink px-1 text-[9px] text-muted" style={right ? { left: -4 } : { right: -4 }}>
+          {p.championLevel}
+        </span>
+      </div>
+      <Loadout p={p} a={assets} size={16} />
+      <div className="min-w-0">
+        {p.name === "?" ? (
+          <span className="text-faint">?</span>
+        ) : (
+          <Link
+            href={`/summoner/${server}/${riotIdToSlug(p.name, p.tag)}`}
+            className={`block truncate text-xs hover:underline ${mine ? "font-semibold text-gold" : "font-medium text-text"}`}
+            title={`${p.name}#${p.tag}`}
+          >
+            {p.name}
+          </Link>
+        )}
+        {p.name !== "?" && <p className="truncate text-[10px] text-faint">#{p.tag}</p>}
+      </div>
+    </div>
+  );
+
+  const stats = (
+    <div className={`text-[11px] leading-4 ${right ? "text-right" : ""}`}>
+      <p className="tabular text-sm font-bold">
+        {p.kills} <span className="text-faint">/</span> <span className="text-loss">{p.deaths}</span> <span className="text-faint">/</span>{" "}
+        {p.assists}
+        <span className={`ml-1.5 text-[11px] font-semibold ${kdaColor(p.kills, p.deaths, p.assists)}`}>{kdaRatio(p.kills, p.deaths, p.assists)}</span>
+      </p>
+      <p className="tabular text-muted">
+        {p.cs} CS ({(p.cs / minutes).toFixed(1)}) · {compact(p.gold)} {t("gold").toLowerCase()}
+      </p>
+      <p className="tabular text-muted">
+        {kp}% {t("kill_participation_short")} · {t("vision")} {p.vision}
+      </p>
+    </div>
+  );
+
+  const damage = (
+    <div className="w-16 shrink-0" title={t("damage")}>
+      <p className={`tabular text-[11px] text-muted ${right ? "text-right" : ""}`}>{compact(p.damage)}</p>
+      <div className={`mt-0.5 flex h-1.5 overflow-hidden rounded-full bg-ink ${right ? "justify-end" : ""}`}>
+        <div className={`h-full ${bar}`} style={{ width: `${(p.damage / maxDamage) * 100}%` }} />
+      </div>
+    </div>
+  );
+
+  const items = (
+    <div className={`flex shrink-0 items-center gap-0.5 ${right ? "flex-row-reverse" : ""}`}>
+      <div className="grid grid-cols-3 gap-0.5">
+        {p.items.slice(0, 6).map((id, i) => (
+          <Icon key={i} src={id ? img.item(assets.version, id) : null} size={20} />
+        ))}
+      </div>
+      <Icon src={p.items[6] ? img.item(assets.version, p.items[6]) : null} size={20} className="rounded-full" />
+    </div>
+  );
 
   return (
-    <div className="space-y-3 border-t border-line/60 bg-ink/40 p-3">
-      {[100, 200].map((teamId) => {
-        const team = match.teams.find((x) => x.teamId === teamId);
-        const players = match.players.filter((p) => p.teamId === teamId);
-        const blue = teamId === 100;
-        return (
-          <div key={teamId} className="overflow-x-auto">
-            <div className="mb-1.5 flex items-center gap-3 text-xs">
-              <span className={`font-semibold ${team?.win ? "text-win" : "text-loss"}`}>
-                {team?.win ? t("victory") : t("defeat")}
-              </span>
-              <span className="text-muted">{blue ? t("blue_team") : t("red_team")}</span>
-              {team && (
-                <span className="tabular ml-auto text-faint">
-                  {team.kills} K · {team.towers} {t("towers")} · {team.dragons} {t("dragons")} · {team.barons} {t("barons")}
-                </span>
+    <div
+      className={`grid items-center gap-2 rounded-lg px-1.5 py-1.5 ${mine ? "bg-gold/5" : ""} ${
+        right ? "grid-cols-[auto_auto_auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+      }`}
+    >
+      {right ? (
+        <>
+          {items}
+          {damage}
+          {stats}
+          {who}
+        </>
+      ) : (
+        <>
+          {who}
+          {stats}
+          {damage}
+          {items}
+        </>
+      )}
+    </div>
+  );
+}
+
+function MatchDetails({ match, puuid, server, assets }: { match: MatchSummary; puuid: string; server: string; assets: Assets }) {
+  const { t } = useI18n();
+  const blue = byRole(match.players.filter((p) => p.teamId === 100));
+  const red = byRole(match.players.filter((p) => p.teamId === 200));
+  const maxDamage = Math.max(...match.players.map((p) => p.damage), 1);
+  const teams = { 100: match.teams.find((x) => x.teamId === 100), 200: match.teams.find((x) => x.teamId === 200) };
+  const totals = { 100: teamTotals(blue), 200: teamTotals(red) };
+  const qk = queueKey(match.queueId);
+
+  // Arena lobbies are too large to face off; list them as before.
+  if (match.mode === "CHERRY" || red.length === 0) {
+    return (
+      <div className="space-y-1 border-t border-line/60 bg-ink/40 p-3">
+        {match.players.map((p) => (
+          <DetailRow
+            key={p.puuid}
+            p={p}
+            side="left"
+            match={match}
+            puuid={puuid}
+            server={server}
+            assets={assets}
+            maxDamage={maxDamage}
+            teamKills={match.players.filter((x) => x.subteam === p.subteam).reduce((s, x) => s + x.kills, 0)}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  const result = (team?: MatchTeam) =>
+    team?.win ? <span className="font-display font-bold text-win">{t("victory")}</span> : <span className="font-display font-bold text-loss">{t("defeat")}</span>;
+  const kda = (x: { k: number; d: number; a: number }) => (
+    <span className="tabular text-muted">
+      {x.k} / {x.d} / {x.a}
+    </span>
+  );
+  const bans = (team?: MatchTeam, align: "left" | "right" = "left") =>
+    team?.bans && team.bans.length > 0 ? (
+      <div className={`flex items-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
+        <span className="text-[11px] text-faint">{t("bans")}</span>
+        {team.bans.map((key, i) => {
+          const id = assets.byKey[key];
+          return <Icon key={i} src={id ? img.champion(assets.version, id) : null} size={22} className="rounded-full opacity-70 grayscale" />;
+        })}
+      </div>
+    ) : (
+      <span />
+    );
+
+  return (
+    <div className="border-t border-line/60 bg-ink/40 p-3">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-2 pb-2 text-sm">
+        <div className="flex items-center gap-3">
+          {result(teams[100])}
+          {kda(totals[100])}
+          <span className="text-[11px] font-semibold tracking-wider text-win uppercase">{t("blue_team")}</span>
+        </div>
+        <div className="text-center text-xs text-muted">
+          {qk ? t(qk) : match.mode} ({duration(match.duration)})
+        </div>
+        <div className="flex items-center justify-end gap-3">
+          <span className="text-[11px] font-semibold tracking-wider text-loss uppercase">{t("red_team")}</span>
+          {kda(totals[200])}
+          {result(teams[200])}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 border-y border-line/40 px-2 py-1.5">
+        <Objectives team={teams[100]} align="left" />
+        <Objectives team={teams[200]} align="right" />
+      </div>
+
+      <div className="mt-1 space-y-0.5 overflow-x-auto">
+        {blue.map((b, i) => {
+          const r = red[i];
+          return (
+            <div key={b.puuid} className="grid min-w-[940px] grid-cols-[minmax(0,1fr)_16px_minmax(0,1fr)] items-center gap-1">
+              <DetailRow p={b} side="left" match={match} puuid={puuid} server={server} assets={assets} maxDamage={maxDamage} teamKills={totals[100].k} />
+              {ROLES.includes(b.position) ? <Icon src={roleIcon(b.position)} size={16} className="opacity-50" /> : <span />}
+              {r ? (
+                <DetailRow p={r} side="right" match={match} puuid={puuid} server={server} assets={assets} maxDamage={maxDamage} teamKills={totals[200].k} />
+              ) : (
+                <span />
               )}
             </div>
-            <table className="w-full min-w-[640px] text-xs">
-              <tbody>
-                {players.map((p) => (
-                  <tr key={p.puuid} className={p.puuid === puuid ? "bg-white/5" : ""}>
-                    <td className="py-1 pl-1">
-                      <div className="flex items-center gap-2">
-                        <Icon src={img.champion(assets.version, p.champion)} size={30} className="rounded-full" />
-                        <Loadout p={p} a={assets} size={14} />
-                        <div className="flex w-32 min-w-0 flex-col">
-                          <PlayerLink p={p} server={server} bold={p.puuid === puuid} />
-                          <span className="text-[10px] text-faint">#{p.tag}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="tabular w-28 text-center">
-                      <span>
-                        {p.kills}/{p.deaths}/{p.assists}
-                      </span>
-                      <span className={`ml-1.5 ${kdaColor(p.kills, p.deaths, p.assists)}`}>{kdaRatio(p.kills, p.deaths, p.assists)}</span>
-                    </td>
-                    <td className="w-32">
-                      <div className="tabular text-center text-muted">{compact(p.damage)}</div>
-                      <div className="mx-auto mt-0.5 h-1.5 w-20 overflow-hidden rounded-full bg-ink">
-                        <div className={blue ? "h-full bg-win" : "h-full bg-loss"} style={{ width: `${(p.damage / maxDamage) * 100}%` }} />
-                      </div>
-                    </td>
-                    <td className="tabular w-16 text-center text-muted" title={t("gold")}>
-                      {compact(p.gold)}
-                    </td>
-                    <td className="tabular w-20 text-center text-muted">
-                      {p.cs} <span className="text-faint">({(p.cs / minutes).toFixed(1)})</span>
-                    </td>
-                    <td className="tabular w-10 text-center text-muted" title={t("vision")}>
-                      {p.vision}
-                    </td>
-                    <td className="w-48 pr-1">
-                      <Items items={p.items} version={assets.version} size={20} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-ink/50 px-3 py-2">
+        {bans(teams[100], "left")}
+        {bans(teams[200], "right")}
+      </div>
     </div>
   );
 }

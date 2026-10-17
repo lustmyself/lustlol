@@ -16,22 +16,9 @@ const TABS = [
 
 const SHORT = 8;
 
-export function SeasonChampions({
-  server,
-  puuid,
-  version,
-  names,
-}: {
-  server: string;
-  puuid: string;
-  version: string;
-  names: Record<string, string>;
-}) {
-  const { t } = useI18n();
+/** Season stats for a player, polled while the background sync is running. */
+export function useSeasonStats(server: string, puuid: string): SeasonStats | null {
   const [data, setData] = useState<SeasonStats | null>(null);
-  const [tab, setTab] = useState(0);
-  const [all, setAll] = useState(false);
-
   useEffect(() => {
     let stop = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -54,6 +41,23 @@ export function SeasonChampions({
       clearTimeout(timer);
     };
   }, [server, puuid]);
+  return data;
+}
+
+export function SeasonChampions({
+  data,
+  server,
+  version,
+  names,
+}: {
+  data: SeasonStats | null;
+  server: string;
+  version: string;
+  names: Record<string, string>;
+}) {
+  const { t } = useI18n();
+  const [tab, setTab] = useState(0);
+  const [all, setAll] = useState(false);
 
   const rows = useMemo(() => {
     const merged = new Map<string, ChampionLine>();
@@ -67,6 +71,7 @@ export function SeasonChampions({
   }, [data, tab]);
 
   const shown = all ? rows : rows.slice(0, SHORT);
+  const maxGames = Math.max(1, ...rows.map((r) => r.games));
   const pct = data && data.total ? Math.round((data.fetched / data.total) * 100) : 0;
 
   return (
@@ -107,29 +112,50 @@ export function SeasonChampions({
         {!data && <div className="skeleton h-40" />}
         {data && !data.syncing && rows.length === 0 && <p className="text-xs text-muted">{t("season_champs_empty")}</p>}
 
-        <ul className="space-y-2">
+        {shown.length > 0 && (
+          <div className="grid grid-cols-[minmax(0,1fr)_7.5rem_7.5rem] gap-3 px-1 text-[10px] font-semibold tracking-wider text-faint uppercase">
+            <span>{t("champion")}</span>
+            <span>{t("played")}</span>
+            <span>{t("winrate")}</span>
+          </div>
+        )}
+        <ul className="space-y-2.5">
           {shown.map((c) => {
             const wr = Math.round((c.wins / c.games) * 100);
             return (
-              <li key={c.champion} className="flex items-center gap-2.5 text-xs">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.champion(version, c.champion)} alt="" className="h-8 w-8 shrink-0 rounded-full" loading="lazy" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-text">{names[c.champion] ?? c.champion}</p>
-                  <p className="tabular text-faint">
-                    {(c.cs / c.minutes).toFixed(1)} {t("cs")}
-                    {t("per_min")}
-                  </p>
+              <li key={c.champion} className="grid grid-cols-[minmax(0,1fr)_7.5rem_7.5rem] items-center gap-3 px-1 text-xs">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img.champion(version, c.champion)} alt="" className="h-10 w-10 shrink-0 rounded-lg" loading="lazy" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-text">{names[c.champion] ?? c.champion}</p>
+                    <p className="tabular font-semibold">
+                      <span className="text-buff">{(c.kills / c.games).toFixed(1)}</span>
+                      <span className="text-faint"> / </span>
+                      <span className="text-nerf">{(c.deaths / c.games).toFixed(1)}</span>
+                      <span className="text-faint"> / </span>
+                      <span className="text-adjust">{(c.assists / c.games).toFixed(1)}</span>
+                      <span className={`ml-1.5 font-normal ${kdaColor(c.kills, c.deaths, c.assists)}`}>
+                        {kdaRatio(c.kills, c.deaths, c.assists)}
+                      </span>
+                    </p>
+                    <p className="tabular text-[11px] text-faint">
+                      {(c.cs / c.minutes).toFixed(1)} {t("cs")}
+                      {t("per_min")}
+                    </p>
+                  </div>
                 </div>
-                <div className="w-20 shrink-0 text-center">
-                  <p className={`tabular font-semibold ${kdaColor(c.kills, c.deaths, c.assists)}`}>{kdaRatio(c.kills, c.deaths, c.assists)}</p>
-                  <p className="tabular text-faint">
-                    {(c.kills / c.games).toFixed(1)}/{(c.deaths / c.games).toFixed(1)}/{(c.assists / c.games).toFixed(1)}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink">
+                    <div className="h-full rounded-full bg-teal" style={{ width: `${(c.games / maxGames) * 100}%` }} />
+                  </div>
+                  <span className="tabular w-7 text-right font-semibold text-text">{c.games}</span>
                 </div>
-                <div className="w-16 shrink-0 text-right whitespace-nowrap">
-                  <p className={`tabular font-semibold ${winrateColor(wr)}`}>{wr}%</p>
-                  <p className="tabular text-faint">{t("wins_losses", { w: c.wins, l: c.games - c.wins })}</p>
+                <div className="flex items-center gap-2" title={t("wins_losses", { w: c.wins, l: c.games - c.wins })}>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink">
+                    <div className={`h-full rounded-full ${wr >= 50 ? "bg-win" : "bg-loss"}`} style={{ width: `${wr}%` }} />
+                  </div>
+                  <span className={`tabular w-10 text-right font-semibold ${winrateColor(wr)}`}>{wr}%</span>
                 </div>
               </li>
             );
