@@ -1,59 +1,182 @@
 import "server-only";
-import { MemoryCache, cached } from "@/lib/cache";
+import { MemoryCache, cached, mongoCollection } from "@/lib/cache";
 import { riot } from "./client";
 import { recordRanks } from "./history";
-import { getServer } from "./servers";
+import { getServer, type Server } from "./servers";
 import type { LeaderboardEntry } from "./types";
 
-const boardCache = new MemoryCache<LeaderboardEntry[]>(15 * 60_000, 50);
-const nameCache = new MemoryCache<{ name: string; tag: string; icon: number }>(24 * 60 * 60_000, 5000);
+export const PAGE_SIZE = 50;
+export const MAX_RANK = 1000;
 
-const RESOLVE = 25;
+interface LadderRow {
+  puuid: string;
+  tier: string;
+  leaguePoints: number;
+  wins: number;
+  losses: number;
+  hotStreak: boolean;
+}
 
-export async function getLeaderboard(serverId: string, queue: string): Promise<LeaderboardEntry[]> {
-  const server = getServer(serverId);
-  if (!server) throw new Error(`Unknown server ${serverId}`);
+interface Who {
+  name: string;
+  tag: string;
+  icon: number | null;
+}
 
-  return cached(boardCache, `${server.id}:${queue}`, async () => {
-    const league = await riot<{
-      entries: { puuid: string; leaguePoints: number; wins: number; losses: number; hotStreak: boolean }[];
-    }>(server.platform, `/lol/league/v4/challengerleagues/by-queue/${queue}`);
+const ladderCache = new MemoryCache<LadderRow[]>(15 * 60_000, 50);
+const whoCache = new MemoryCache<Who>(7 * 24 * 60 * 60_000, 20_000);
+const iconQueue = new Set<string>();
+const nameQueue = new Set<string>();
 
-    const top = [...league.entries].sort((a, b) => b.leaguePoints - a.leaguePoints).slice(0, 100);
-    for (const e of league.entries) {
-      void recordRanks(e.puuid, server.id, [{ queueType: queue, tier: "CHALLENGER", rank: "I", leaguePoints: e.leaguePoints }]);
-    }
+const accountHost = (s: Server) => (s.region === "sea" ? "asia" : s.region);
 
-    // Riot ID and icon cost two requests per player, so only the top rows get them.
-    const resolved = await Promise.all(
-      top.slice(0, RESOLVE).map((e) =>
-        cached(nameCache, e.puuid, async () => {
-          const puuid = encodeURIComponent(e.puuid);
-          const [acc, summ] = await Promise.all([
-            riot<{ gameName: string; tagLine: string }>(
-              server.region === "sea" ? "asia" : server.region,
-              `/riot/account/v1/accounts/by-puuid/${puuid}`,
-            ),
-            riot<{ profileIconId: number }>(server.platform, `/lol/summoner/v4/summoners/by-puuid/${puuid}`),
-          ]);
-          return { name: acc.gameName, tag: acc.tagLine, icon: summ.profileIconId };
-        }).catch(() => null),
+/** Challenger, then Grandmaster, then Master, merged by LP and cut at MAX_RANK. */
+async function ladder(server: Server, queue: string): Promise<LadderRow[]> {
+  return cached(ladderCache, `${server.id}:${queue}`, async () => {
+    const tiers = ["challenger", "grandmaster", "master"] as const;
+    const leagues = await Promise.all(
+      tiers.map((t) =>
+        riot<{ tier: string; entries: Omit<LadderRow, "tier">[] }>(
+          server.platform,
+          `/lol/league/v4/${t}leagues/by-queue/${queue}`,
+        ).catch(() => ({ tier: t.toUpperCase(), entries: [] })),
       ),
     );
-
-    return top.map((e, i) => {
-      const who = resolved[i] ?? nameCache.get(e.puuid) ?? null;
-      return {
-        rank: i + 1,
+    const rows = leagues.flatMap((l, i) =>
+      l.entries.map((e) => ({
         puuid: e.puuid,
-        name: who?.name ?? null,
-        tag: who?.tag ?? null,
-        profileIconId: who?.icon ?? null,
+        tier: tiers[i].toUpperCase(),
         leaguePoints: e.leaguePoints,
         wins: e.wins,
         losses: e.losses,
         hotStreak: e.hotStreak,
-      };
-    });
+      })),
+    );
+    if (rows.length === 0) throw new Error("empty ladder");
+    return rows.sort((a, b) => b.leaguePoints - a.leaguePoints).slice(0, MAX_RANK);
   });
+}
+
+async function storedWho(puuids: string[]): Promise<Map<string, Who>> {
+  const found = new Map<string, Who>();
+  const missing: string[] = [];
+  for (const p of puuids) {
+    const hit = whoCache.get(p);
+    if (hit) found.set(p, hit);
+    else missing.push(p);
+  }
+  const coll = await mongoCollection("puuid_names");
+  if (coll && missing.length) {
+    const docs = await coll.find({ _id: { $in: missing } as never }).toArray().catch(() => []);
+    for (const d of docs) {
+      const who = { name: d.name as string, tag: d.tag as string, icon: (d.icon as number) ?? null };
+      whoCache.set(d._id as unknown as string, who);
+      found.set(d._id as unknown as string, who);
+    }
+  }
+  return found;
+}
+
+async function saveWho(puuid: string, who: Who) {
+  whoCache.set(puuid, who);
+  const coll = await mongoCollection("puuid_names");
+  await coll?.updateOne({ _id: puuid as never }, { $set: { ...who, at: new Date() } }, { upsert: true }).catch(() => {});
+}
+
+/** Icons cost a second request per player, so they are filled in behind the page at low priority. */
+function queueIcons(server: Server, puuids: string[]) {
+  for (const puuid of puuids) {
+    if (iconQueue.has(puuid)) continue;
+    iconQueue.add(puuid);
+    void riot<{ profileIconId: number }>(server.platform, `/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`, "low")
+      .then(async (s) => {
+        const who = whoCache.get(puuid);
+        if (who) await saveWho(puuid, { ...who, icon: s.profileIconId });
+      })
+      .catch(() => {})
+      .finally(() => iconQueue.delete(puuid));
+  }
+}
+
+/** Names that failed during a page load (usually the rate limit) are retried behind it. */
+function queueNames(server: Server, puuids: string[]) {
+  for (const puuid of puuids) {
+    if (nameQueue.has(puuid)) continue;
+    nameQueue.add(puuid);
+    void riot<{ gameName: string; tagLine: string }>(
+      accountHost(server),
+      `/riot/account/v1/accounts/by-puuid/${encodeURIComponent(puuid)}`,
+      "low",
+    )
+      .then(async (acc) => {
+        await saveWho(puuid, { name: acc.gameName, tag: acc.tagLine, icon: null });
+        queueIcons(server, [puuid]);
+      })
+      .catch(() => {})
+      .finally(() => nameQueue.delete(puuid));
+  }
+}
+
+export interface LeaderboardPage {
+  entries: LeaderboardEntry[];
+  page: number;
+  pages: number;
+}
+
+export async function getLeaderboardPage(serverId: string, queue: string, page: number): Promise<LeaderboardPage> {
+  const server = getServer(serverId);
+  if (!server) throw new Error(`Unknown server ${serverId}`);
+
+  const rows = await ladder(server, queue);
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const current = Math.min(Math.max(1, page), pages);
+  const start = (current - 1) * PAGE_SIZE;
+  const slice = rows.slice(start, start + PAGE_SIZE);
+
+  const known = await storedWho(slice.map((r) => r.puuid));
+  await Promise.all(
+    slice
+      .filter((r) => !known.has(r.puuid))
+      .map(async (r) => {
+        try {
+          const acc = await riot<{ gameName: string; tagLine: string }>(
+            accountHost(server),
+            `/riot/account/v1/accounts/by-puuid/${encodeURIComponent(r.puuid)}`,
+          );
+          const who = { name: acc.gameName, tag: acc.tagLine, icon: null };
+          known.set(r.puuid, who);
+          await saveWho(r.puuid, who);
+        } catch {
+          queueNames(server, [r.puuid]);
+        }
+      }),
+  );
+  queueIcons(
+    server,
+    slice.filter((r) => known.get(r.puuid) && known.get(r.puuid)!.icon === null).map((r) => r.puuid),
+  );
+
+  for (const r of slice) {
+    void recordRanks(r.puuid, server.id, [{ queueType: queue, tier: r.tier, rank: "I", leaguePoints: r.leaguePoints }]);
+  }
+
+  return {
+    page: current,
+    pages,
+    entries: slice.map((r, i) => {
+      const who = known.get(r.puuid);
+      return {
+        rank: start + i + 1,
+        puuid: r.puuid,
+        tier: r.tier,
+        name: who?.name ?? null,
+        tag: who?.tag ?? null,
+        profileIconId: who?.icon ?? null,
+        leaguePoints: r.leaguePoints,
+        wins: r.wins,
+        losses: r.losses,
+        hotStreak: r.hotStreak,
+      };
+    }),
+  };
 }

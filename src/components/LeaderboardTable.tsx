@@ -3,7 +3,7 @@ import { Flame } from "lucide-react";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 import { img } from "@/lib/riot/images";
 import { riotIdToSlug } from "@/lib/riot/servers";
-import { winrateColor } from "@/lib/format";
+import { TIER_COLORS, tierName, winrateColor } from "@/lib/format";
 import type { LeaderboardEntry } from "@/lib/riot/types";
 
 export function LeaderboardTable({
@@ -26,6 +26,7 @@ export function LeaderboardTable({
           <tr className="border-b border-line/70 text-left text-[11px] uppercase tracking-wider text-faint">
             <th className="w-12 py-2.5 pl-4">#</th>
             <th className="py-2.5">{dict.player}</th>
+            {!compact && <th className="hidden py-2.5 md:table-cell">{dict.tier}</th>}
             <th className="py-2.5 text-right">{dict.lp}</th>
             {!compact && <th className="hidden py-2.5 text-right sm:table-cell">{dict.games}</th>}
             <th className="py-2.5 pr-4 text-right">{dict.winrate}</th>
@@ -41,8 +42,12 @@ export function LeaderboardTable({
                 <td className="py-2">
                   {e.name ? (
                     <Link href={`/summoner/${server}/${riotIdToSlug(e.name, e.tag!)}`} className="flex items-center gap-2.5 hover:underline">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.profileIcon(version, e.profileIconId ?? 29)} alt="" className="h-7 w-7 rounded-md" loading="lazy" />
+                      {e.profileIconId !== null ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img.profileIcon(version, e.profileIconId)} alt="" className="h-7 w-7 rounded-md" loading="lazy" />
+                      ) : (
+                        <span className="h-7 w-7 shrink-0 rounded-md bg-ink" />
+                      )}
                       <span className="truncate font-medium">
                         {e.name}
                         <span className="text-faint"> #{e.tag}</span>
@@ -55,6 +60,11 @@ export function LeaderboardTable({
                     </span>
                   )}
                 </td>
+                {!compact && (
+                  <td className="hidden py-2 text-xs font-semibold md:table-cell" style={{ color: TIER_COLORS[e.tier] }}>
+                    {tierName(e.tier)}
+                  </td>
+                )}
                 <td className="tabular py-2 text-right font-semibold text-gold">{e.leaguePoints.toLocaleString()}</td>
                 {!compact && <td className="tabular hidden py-2 text-right text-muted sm:table-cell">{games}</td>}
                 <td className={`tabular py-2 pr-4 text-right font-semibold ${winrateColor(wr)}`}>{wr}%</td>

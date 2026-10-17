@@ -113,6 +113,7 @@ export interface MatchPage {
 export interface LeaderboardEntry {
   rank: number;
   puuid: string;
+  tier: string;
   name: string | null;
   tag: string | null;
   profileIconId: number | null;

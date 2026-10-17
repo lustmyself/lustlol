@@ -126,8 +126,9 @@ const tr = {
   queue_urf: "URF",
   queue_arena: "Arena",
 
-  leaderboard_title: "Challenger sıralaması",
-  leaderboard_sub: "{s} sunucusunun en iyi oyuncuları, Riot'tan canlı.",
+  leaderboard_title: "Sıralama",
+  leaderboard_sub: "{s} sunucusunun en iyi 1000 oyuncusu (Challenger, Grandmaster, Master), Riot'tan canlı.",
+  tier: "Lig",
   player: "Oyuncu",
   games: "Maç",
   hot_streak: "Galibiyet serisi",
@@ -279,8 +280,9 @@ const en: Dictionary = {
   queue_urf: "URF",
   queue_arena: "Arena",
 
-  leaderboard_title: "Challenger leaderboard",
-  leaderboard_sub: "Top players on {s}, live from Riot.",
+  leaderboard_title: "Leaderboard",
+  leaderboard_sub: "Top 1000 players on {s} (Challenger, Grandmaster, Master), live from Riot.",
+  tier: "Tier",
   player: "Player",
   games: "Games",
   hot_streak: "Hot streak",

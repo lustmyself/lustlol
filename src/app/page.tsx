@@ -8,7 +8,7 @@ import { getDictionary } from "@/lib/i18n/server";
 import { format, type Dictionary } from "@/lib/i18n/dictionaries";
 import { latestVersion } from "@/lib/riot/ddragon";
 import { errorCode } from "@/lib/riot/errors";
-import { getLeaderboard } from "@/lib/riot/leaderboard";
+import { getLeaderboardPage } from "@/lib/riot/leaderboard";
 import { DEFAULT_SERVER, RANKED_QUEUES } from "@/lib/riot/servers";
 import { getPatchNotes, type ChangeKind } from "@/lib/patch";
 
@@ -62,7 +62,7 @@ async function PatchGlance({ dict }: { dict: Dictionary }) {
 async function TopPlayers({ dict, version }: { dict: Dictionary; version: string }) {
   let body: React.ReactNode;
   try {
-    const entries = await getLeaderboard(DEFAULT_SERVER, RANKED_QUEUES.solo);
+    const { entries } = await getLeaderboardPage(DEFAULT_SERVER, RANKED_QUEUES.solo, 1);
     body = <LeaderboardTable entries={entries.slice(0, 8)} server={DEFAULT_SERVER} version={version} dict={dict} compact />;
   } catch (e) {
     body = <p className="rounded-xl border border-line/70 bg-panel p-4 text-sm text-muted">{dict[`err_${errorCode(e)}`]}</p>;

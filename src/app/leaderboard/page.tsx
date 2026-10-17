@@ -5,14 +5,14 @@ import { getDictionary } from "@/lib/i18n/server";
 import { format } from "@/lib/i18n/dictionaries";
 import { latestVersion } from "@/lib/riot/ddragon";
 import { errorCode } from "@/lib/riot/errors";
-import { getLeaderboard } from "@/lib/riot/leaderboard";
+import { getLeaderboardPage, type LeaderboardPage } from "@/lib/riot/leaderboard";
 import { DEFAULT_SERVER, RANKED_QUEUES, SERVERS, getServer, type RankedQueueKey } from "@/lib/riot/servers";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
-import type { LeaderboardEntry } from "@/lib/riot/types";
+import { RefreshWhile } from "@/components/ui/RefreshWhile";
 
 export const metadata: Metadata = { title: "Leaderboard" };
 
-type Search = Promise<{ server?: string; queue?: string }>;
+type Search = Promise<{ server?: string; queue?: string; page?: string }>;
 
 export default async function LeaderboardPage({ searchParams }: { searchParams: Search }) {
   const sp = await searchParams;
@@ -20,14 +20,15 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const queueKey: RankedQueueKey = sp.queue === "flex" ? "flex" : "solo";
   const [{ dict }, version] = await Promise.all([getDictionary(), latestVersion()]);
 
-  let entries: LeaderboardEntry[];
+  let board: LeaderboardPage;
   try {
-    entries = await getLeaderboard(server.id, RANKED_QUEUES[queueKey]);
+    board = await getLeaderboardPage(server.id, RANKED_QUEUES[queueKey], Number(sp.page) || 1);
   } catch (e) {
     return <ErrorState title={dict[`err_${errorCode(e)}`]} action={dict.back_home} />;
   }
 
-  const href = (s: string, q: RankedQueueKey) => `/leaderboard?server=${s}${q === "flex" ? "&queue=flex" : ""}`;
+  const href = (s: string, q: RankedQueueKey, page = 1) =>
+    `/leaderboard?server=${s}${q === "flex" ? "&queue=flex" : ""}${page > 1 ? `&page=${page}` : ""}`;
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pt-8">
@@ -62,7 +63,26 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         ))}
       </div>
 
-      <LeaderboardTable entries={entries} server={server.id} version={version} dict={dict} />
+      <RefreshWhile active={board.entries.some((e) => !e.name || e.profileIconId === null)} />
+      <LeaderboardTable entries={board.entries} server={server.id} version={version} dict={dict} />
+
+      {board.pages > 1 && (
+        <nav className="flex flex-wrap items-center justify-center gap-1" aria-label="pages">
+          {Array.from({ length: board.pages }, (_, i) => i + 1).map((p) => (
+            <Link
+              key={p}
+              href={href(server.id, queueKey, p)}
+              aria-current={p === board.page ? "page" : undefined}
+              className={`tabular min-w-9 rounded-md px-2 py-1.5 text-center text-xs font-semibold ${
+                p === board.page ? "bg-gold text-ink" : "border border-line text-muted hover:border-gold/50 hover:text-text"
+              }`}
+              title={`#${(p - 1) * 50 + 1}–${p * 50}`}
+            >
+              {p}
+            </Link>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
