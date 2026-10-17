@@ -10,6 +10,21 @@ export interface RankedEntry {
   hotStreak: boolean;
 }
 
+export interface TierStep {
+  tier: string;
+  rank: string;
+  leaguePoints: number;
+}
+
+/** One queue in one season, as recorded by this site. */
+export interface SeasonRank {
+  season: string;
+  queueType: string;
+  peak: TierStep;
+  last: TierStep;
+  updatedAt: number;
+}
+
 export interface Profile {
   puuid: string;
   name: string;

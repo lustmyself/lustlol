@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { ProfileBody } from "@/components/profile/ProfileBody";
 import { RefreshButton } from "@/components/profile/RefreshButton";
 import { RememberSearch } from "@/components/profile/RememberSearch";
+import { SeasonHistory } from "@/components/profile/SeasonHistory";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getDictionary } from "@/lib/i18n/server";
 import { format, timeAgo, type Dictionary } from "@/lib/i18n/dictionaries";
 import { getStaticData } from "@/lib/riot/ddragon";
 import { img } from "@/lib/riot/images";
 import { errorCode } from "@/lib/riot/errors";
+import { currentSeason, getRankHistory } from "@/lib/riot/history";
 import { getMatchPage, getProfile } from "@/lib/riot/player";
 import { getServer, slugToRiotId } from "@/lib/riot/servers";
 import { TIER_COLORS, rankEmblem, rankLabel, winrateColor } from "@/lib/format";
@@ -49,6 +51,8 @@ export default async function SummonerPage({ params }: { params: Params }) {
     );
   }
 
+  const history = await getRankHistory(profile.puuid);
+
   let initial: MatchPage | null = null;
   let initialError: ApiErrorCode | null = null;
   try {
@@ -71,6 +75,7 @@ export default async function SummonerPage({ params }: { params: Params }) {
           <>
             <RankCard title={dict.ranked_solo} entry={profile.ranked.find((r) => r.queueType === "RANKED_SOLO_5x5")} dict={dict} />
             <RankCard title={dict.ranked_flex} entry={profile.ranked.find((r) => r.queueType === "RANKED_FLEX_SR")} dict={dict} />
+            <SeasonHistory rows={history} current={currentSeason()} dict={dict} />
           </>
         }
       />

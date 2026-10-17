@@ -1,6 +1,7 @@
 import "server-only";
 import { MemoryCache, cached, mongoCollection } from "@/lib/cache";
 import { riot } from "./client";
+import { recordRanks } from "./history";
 import { getServer, type Server } from "./servers";
 import type { MatchPage, MatchPlayer, MatchSummary, Profile, RankedEntry, SearchSuggestion } from "./types";
 
@@ -49,6 +50,8 @@ export async function getProfile(serverId: string, name: string, tag: string): P
       ),
       riot<RankedEntry[]>(server.platform, `/lol/league/v4/entries/by-puuid/${puuid}`).catch(() => []),
     ]);
+
+    await recordRanks(account.puuid, server.id, ranked).catch(() => {});
 
     const solo = ranked.find((r) => r.queueType === "RANKED_SOLO_5x5");
     remember({

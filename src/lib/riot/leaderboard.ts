@@ -1,6 +1,7 @@
 import "server-only";
 import { MemoryCache, cached } from "@/lib/cache";
 import { riot } from "./client";
+import { recordRanks } from "./history";
 import { getServer } from "./servers";
 import type { LeaderboardEntry } from "./types";
 
@@ -19,6 +20,9 @@ export async function getLeaderboard(serverId: string, queue: string): Promise<L
     }>(server.platform, `/lol/league/v4/challengerleagues/by-queue/${queue}`);
 
     const top = [...league.entries].sort((a, b) => b.leaguePoints - a.leaguePoints).slice(0, 100);
+    for (const e of league.entries) {
+      void recordRanks(e.puuid, server.id, [{ queueType: queue, tier: "CHALLENGER", rank: "I", leaguePoints: e.leaguePoints }]);
+    }
 
     // Riot ID and icon cost two requests per player, so only the top rows get them.
     const resolved = await Promise.all(

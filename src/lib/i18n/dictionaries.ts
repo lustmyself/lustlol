@@ -46,6 +46,13 @@ const tr = {
   winrate: "Kazanma",
   lp: "LP",
 
+  season_history: "Sezon geçmişi",
+  season_history_note: "lustlol kayıtları",
+  season_peak: "Bu sezon en yüksek {r} oldu.",
+  season_peak_now: "Bu sezon şu ana kadar en yüksek {r}.",
+  season_end: "Sezon sonunda {r} idi.",
+  season_now: "Şu an {r}.",
+
   champ_stats: "Şampiyon istatistikleri",
   champ_stats_note: "Yüklenen {n} maçtan",
   duo_title: "Birlikte oynadıkları",
@@ -160,6 +167,13 @@ const en: Dictionary = {
   wins_losses: "{w}W {l}L",
   winrate: "Win rate",
   lp: "LP",
+
+  season_history: "Season history",
+  season_history_note: "Recorded by lustlol",
+  season_peak: "Peaked at {r} this season.",
+  season_peak_now: "Highest so far this season: {r}.",
+  season_end: "Ended the season at {r}.",
+  season_now: "Currently {r}.",
 
   champ_stats: "Champion stats",
   champ_stats_note: "From {n} loaded games",
