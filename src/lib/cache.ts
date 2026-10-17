@@ -72,6 +72,8 @@ export function mongoCollection(name: string): Promise<Collection | null> {
     .then((client) => client.db().collection("_probe"))
     .catch((err) => {
       console.warn("MongoDB unavailable, using memory cache only:", err.message);
+      // Try again in a minute instead of staying on memory until a restart.
+      setTimeout(() => (collectionPromise = null), 60_000);
       return null;
     });
   return collectionPromise.then((probe) => (probe ? probe.db.collection(name) : null));

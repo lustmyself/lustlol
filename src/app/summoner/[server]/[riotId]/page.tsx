@@ -78,7 +78,7 @@ export default async function SummonerPage({ params }: { params: Params }) {
         initialError={initialError}
         sidebar={
           <>
-            <RankCard title={dict.ranked_solo} entry={profile.ranked.find((r) => r.queueType === "RANKED_SOLO_5x5")} dict={dict} />
+            <RankCard big title={dict.ranked_solo} entry={profile.ranked.find((r) => r.queueType === "RANKED_SOLO_5x5")} dict={dict} />
             <RankCard title={dict.ranked_flex} entry={profile.ranked.find((r) => r.queueType === "RANKED_FLEX_SR")} dict={dict} />
             <SeasonHistory rows={history} current={currentSeason()} dict={dict} />
           </>
@@ -125,23 +125,25 @@ function ProfileHeader({ profile, serverLabel, version, dict }: { profile: Profi
   );
 }
 
-function RankCard({ title, entry, dict }: { title: string; entry?: RankedEntry; dict: Dictionary }) {
+function RankCard({ title, entry, dict, big = false }: { title: string; entry?: RankedEntry; dict: Dictionary; big?: boolean }) {
   const games = entry ? entry.wins + entry.losses : 0;
   const wr = games ? Math.round((entry!.wins / games) * 100) : 0;
   return (
-    <section className="rounded-xl border border-line/70 bg-panel px-4 py-3">
-      <h2 className="font-display text-sm font-semibold tracking-wide text-muted">{title}</h2>
+    <section className={`rounded-xl border border-line/70 bg-panel ${big ? "px-6 py-5" : "px-4 py-3"}`}>
+      <h2 className={`font-display font-semibold tracking-wide text-muted ${big ? "text-lg" : "text-sm"}`}>{title}</h2>
       {entry ? (
-        <div className="mt-2 flex items-center gap-3">
-          <Emblem tier={entry.tier} />
+        <div className={`flex items-center ${big ? "mt-3 gap-6" : "mt-2 gap-3"}`}>
+          <Emblem tier={entry.tier} scale={big ? 2 : 1} />
           <div className="min-w-0 flex-1">
-            <p className="font-display text-lg leading-tight font-bold" style={{ color: TIER_COLORS[entry.tier] }}>
+            <p className={`font-display leading-tight font-bold ${big ? "text-4xl" : "text-lg"}`} style={{ color: TIER_COLORS[entry.tier] }}>
               {rankLabel(entry.tier, entry.rank)}
             </p>
-            <p className="tabular text-sm text-muted">{entry.leaguePoints} LP</p>
-            <p className="tabular mt-1 text-xs text-faint">{format(dict.wins_losses, { w: entry.wins, l: entry.losses })}</p>
+            <p className={`tabular text-muted ${big ? "mt-1 text-2xl" : "text-sm"}`}>{entry.leaguePoints} LP</p>
+            <p className={`tabular text-faint ${big ? "mt-2 text-base" : "mt-1 text-xs"}`}>
+              {format(dict.wins_losses, { w: entry.wins, l: entry.losses })}
+            </p>
           </div>
-          <WinRateDonut wr={wr} label={dict.winrate} />
+          <WinRateDonut wr={wr} label={dict.winrate} scale={big ? 2 : 1} />
         </div>
       ) : (
         <p className="mt-1.5 text-sm text-faint">{dict.unranked}</p>
@@ -151,25 +153,25 @@ function RankCard({ title, entry, dict }: { title: string; entry?: RankedEntry; 
 }
 
 /** Riot's emblem art sits small in the middle of a wide canvas, so it is drawn oversized and clipped. */
-function Emblem({ tier }: { tier: string }) {
+function Emblem({ tier, scale = 1 }: { tier: string; scale?: number }) {
   return (
-    <div className="relative h-20 w-24 shrink-0 overflow-hidden" aria-hidden>
+    <div className="relative shrink-0 overflow-hidden" style={{ width: 96 * scale, height: 80 * scale }} aria-hidden>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={rankEmblem(tier)}
         alt=""
         className="absolute top-1/2 left-1/2 h-auto max-w-none -translate-x-1/2 -translate-y-1/2"
-        style={{ width: 370 }}
+        style={{ width: 370 * scale }}
       />
     </div>
   );
 }
 
-function WinRateDonut({ wr, label }: { wr: number; label: string }) {
+function WinRateDonut({ wr, label, scale = 1 }: { wr: number; label: string; scale?: number }) {
   const r = 26;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative h-16 w-16 shrink-0" role="img" aria-label={`${label} ${wr}%`}>
+    <div className="relative shrink-0" style={{ width: 64 * scale, height: 64 * scale }} role="img" aria-label={`${label} ${wr}%`}>
       <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
         <circle cx="32" cy="32" r={r} fill="none" stroke="var(--color-loss)" strokeOpacity="0.55" strokeWidth="7" />
         <circle
@@ -182,7 +184,11 @@ function WinRateDonut({ wr, label }: { wr: number; label: string }) {
           strokeDasharray={`${(wr / 100) * c} ${c}`}
         />
       </svg>
-      <span className={`tabular absolute inset-0 flex items-center justify-center text-sm font-bold ${winrateColor(wr)}`}>{wr}%</span>
+      <span
+        className={`tabular absolute inset-0 flex items-center justify-center font-bold ${winrateColor(wr)} ${scale > 1 ? "text-2xl" : "text-sm"}`}
+      >
+        {wr}%
+      </span>
     </div>
   );
 }

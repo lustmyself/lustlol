@@ -1,30 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useI18n } from "../i18n";
 import { MatchCard, type Assets } from "./MatchCard";
 import { SeasonChampions } from "./SeasonChampions";
-import { QUEUE_IDS, riotIdToSlug } from "@/lib/riot/servers";
+import { QUEUE_IDS } from "@/lib/riot/servers";
 import { kdaColor, kdaRatio, winrateColor } from "@/lib/format";
 import type { DictKey } from "@/lib/i18n/dictionaries";
 import type { ApiErrorCode, MatchPage, MatchSummary } from "@/lib/riot/types";
 
 const PAGE = 10;
 const FILTERS = [0, 420, 440, 400, 450, 1750];
-
-function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-line/70 bg-panel">
-      <header className="flex items-baseline justify-between gap-2 border-b border-line/70 px-4 py-2.5">
-        <h2 className="font-display text-sm font-semibold tracking-wide">{title}</h2>
-        {note && <span className="text-[11px] text-faint">{note}</span>}
-      </header>
-      <div className="p-3">{children}</div>
-    </section>
-  );
-}
 
 export function ProfileBody({
   puuid,
@@ -74,39 +61,12 @@ export function ProfileBody({
   const stats = useMemo(() => summarize(matches, puuid), [matches, puuid]);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,980px)_minmax(0,1fr)]">
       <aside className="space-y-4 xl:col-start-2 xl:row-start-1">
         {sidebar}
 
         <SeasonChampions server={server} puuid={puuid} version={assets.version} names={assets.names} />
 
-        {matches.length > 0 && (
-          <Panel title={t("duo_title")} note={t("duo_note")}>
-            {stats.duos.length === 0 ? (
-              <p className="text-xs text-muted">{t("duo_none")}</p>
-            ) : (
-              <ul className="space-y-2">
-                {stats.duos.slice(0, 6).map((d) => (
-                  <li key={d.puuid} className="flex items-center gap-2.5 text-xs">
-                    <Link
-                      href={`/summoner/${server}/${riotIdToSlug(d.name, d.tag)}`}
-                      className="min-w-0 flex-1 truncate font-semibold text-text hover:underline"
-                    >
-                      {d.name}
-                      <span className="font-normal text-faint"> #{d.tag}</span>
-                    </Link>
-                    <span className="tabular text-faint">
-                      {t("wins_losses", { w: d.wins, l: d.games - d.wins })}
-                    </span>
-                    <span className={`tabular w-10 text-right font-semibold ${winrateColor((d.wins / d.games) * 100)}`}>
-                      {Math.round((d.wins / d.games) * 100)}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-        )}
       </aside>
 
       <section className="min-w-0 space-y-3 xl:col-start-1 xl:row-start-1">
@@ -208,12 +168,10 @@ interface Stats {
   d: number;
   a: number;
   form: boolean[];
-  duos: { puuid: string; name: string; tag: string; games: number; wins: number }[];
 }
 
 function summarize(matches: MatchSummary[], puuid: string): Stats {
-  const s: Stats = { games: 0, wins: 0, k: 0, d: 0, a: 0, form: [], duos: [] };
-  const duos = new Map<string, Stats["duos"][number]>();
+  const s: Stats = { games: 0, wins: 0, k: 0, d: 0, a: 0, form: [] };
 
   for (const m of matches) {
     if (m.remake) continue;
@@ -227,15 +185,7 @@ function summarize(matches: MatchSummary[], puuid: string): Stats {
     s.form.push(me.win);
 
 
-    for (const p of m.players) {
-      if (p.teamId !== me.teamId || p.puuid === puuid || p.name === "?") continue;
-      const d = duos.get(p.puuid) ?? { puuid: p.puuid, name: p.name, tag: p.tag, games: 0, wins: 0 };
-      d.games++;
-      d.wins += me.win ? 1 : 0;
-      duos.set(p.puuid, d);
-    }
   }
 
-  s.duos = [...duos.values()].filter((d) => d.games >= 2).sort((a, b) => b.games - a.games || b.wins - a.wins);
   return s;
 }

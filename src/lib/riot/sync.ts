@@ -1,6 +1,6 @@
 import "server-only";
 import { riot } from "./client";
-import { gamesSince, indexMatch, knownMatchIds, type PlayerGame } from "./games";
+import { gamesSince, indexMatch, knownMatchIds, othersIn, type PlayerGame } from "./games";
 import { getMatch } from "./player";
 import { getServer } from "./servers";
 
@@ -83,11 +83,61 @@ export interface ChampionLine {
   minutes: number;
 }
 
+export interface Duo {
+  puuid: string;
+  name: string;
+  tag: string;
+  games: number;
+  wins: number;
+}
+
+export const DUO_MIN_GAMES = 5;
+
 export interface SeasonStats {
   syncing: boolean;
   total: number;
   fetched: number;
   champions: ChampionLine[];
+  duos: Duo[];
+}
+
+/** Teammates from this season's ranked games with at least DUO_MIN_GAMES together. */
+async function duos(serverId: string, puuid: string, games: PlayerGame[]): Promise<Duo[]> {
+  const mine = new Map(games.filter((g) => !g.remake).map((g) => [g.matchId, g]));
+  const others = await othersIn(puuid, [...mine.keys()]);
+
+  const found = new Map<string, Duo & { lastMatch: string }>();
+  for (const o of others) {
+    const me = mine.get(o.matchId)!;
+    // Older rows have no teamId; in ranked the winners are always one team.
+    const sameTeam = o.teamId !== undefined && me.teamId !== undefined ? o.teamId === me.teamId : o.win === me.win;
+    if (!sameTeam) continue;
+    const d = found.get(o.puuid) ?? { puuid: o.puuid, name: "", tag: "", games: 0, wins: 0, lastMatch: o.matchId };
+    d.games++;
+    d.wins += me.win ? 1 : 0;
+    if (o.name && !d.name) {
+      d.name = o.name;
+      d.tag = o.tag ?? "";
+    }
+    found.set(o.puuid, d);
+  }
+
+  const server = getServer(serverId)!;
+  const top = [...found.values()].filter((d) => d.games >= DUO_MIN_GAMES).sort((a, b) => b.games - a.games || b.wins - a.wins);
+  await Promise.all(
+    top
+      .filter((d) => !d.name)
+      .map(async (d) => {
+        // The stored summary of a shared game has their Riot ID.
+        const m = await getMatch(d.lastMatch, server, "low").catch(() => null);
+        const p = m?.players.find((x) => x.puuid === d.puuid);
+        if (p) {
+          d.name = p.name;
+          d.tag = p.tag;
+        }
+      }),
+  );
+  return top.map((d) => ({ puuid: d.puuid, name: d.name, tag: d.tag, games: d.games, wins: d.wins }));
 }
 
 function byChampion(games: PlayerGame[]): ChampionLine[] {
@@ -125,5 +175,6 @@ export async function seasonStats(serverId: string, puuid: string): Promise<Seas
     total: Math.max(state.total, games.length),
     fetched: Math.max(state.fetched, games.length),
     champions: byChampion(games),
+    duos: await duos(serverId, puuid, games),
   };
 }

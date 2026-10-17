@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n";
 import { img } from "@/lib/riot/images";
 import { kdaColor, kdaRatio, winrateColor } from "@/lib/format";
+import { riotIdToSlug } from "@/lib/riot/servers";
 import type { ChampionLine, SeasonStats } from "@/lib/riot/sync";
 
 const TABS = [
@@ -68,6 +70,7 @@ export function SeasonChampions({
   const pct = data && data.total ? Math.round((data.fetched / data.total) * 100) : 0;
 
   return (
+    <>
     <section className="rounded-xl border border-line/70 bg-panel">
       <header className="flex items-baseline justify-between gap-2 border-b border-line/70 px-4 py-2.5">
         <h2 className="font-display text-sm font-semibold tracking-wide">{t("season_champs")}</h2>
@@ -140,5 +143,37 @@ export function SeasonChampions({
         )}
       </div>
     </section>
+
+    <section className="rounded-xl border border-line/70 bg-panel">
+      <header className="flex items-baseline justify-between gap-2 border-b border-line/70 px-4 py-2.5">
+        <h2 className="font-display text-sm font-semibold tracking-wide">{t("duo_title")}</h2>
+        <span className="text-[11px] text-faint">{t("duo_note")}</span>
+      </header>
+      <div className="p-3">
+        {!data && <div className="skeleton h-16" />}
+        {data && data.duos.length === 0 && <p className="text-xs text-muted">{data.syncing ? t("duo_waiting") : t("duo_none")}</p>}
+        <ul className="space-y-2">
+          {data?.duos.map((d) => {
+            const wr = Math.round((d.wins / d.games) * 100);
+            return (
+              <li key={d.puuid} className="flex items-center gap-2.5 text-xs">
+                {d.name ? (
+                  <Link href={`/summoner/${server}/${riotIdToSlug(d.name, d.tag)}`} className="min-w-0 flex-1 truncate font-semibold text-text hover:underline">
+                    {d.name}
+                    <span className="font-normal text-faint">#{d.tag}</span>
+                  </Link>
+                ) : (
+                  <span className="min-w-0 flex-1 text-faint">?</span>
+                )}
+                <span className="tabular text-muted">{t("games_count", { n: d.games })}</span>
+                <span className="tabular w-16 text-right text-faint">{t("wins_losses", { w: d.wins, l: d.games - d.wins })}</span>
+                <span className={`tabular w-10 text-right font-semibold ${winrateColor(wr)}`}>{wr}%</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+    </>
   );
 }

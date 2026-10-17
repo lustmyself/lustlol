@@ -84,9 +84,8 @@ function Stat({ big, small, className = "" }: { big: React.ReactNode; small: Rea
 }
 
 function TeamName({ p, server, me, align }: { p: MatchPlayer; server: string; me: boolean; align: "left" | "right" }) {
-  const { t } = useI18n();
   const side = align === "right" ? "text-right" : "";
-  if (me) return <span className={`truncate font-semibold text-gold ${side}`}>{t("you")}</span>;
+  if (me) return <span className={`truncate font-semibold text-gold ${side}`}>{p.name}</span>;
   if (p.name === "?") return <span className={`truncate text-faint ${side}`}>?</span>;
   return (
     <Link
@@ -176,7 +175,7 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
     <article className={`overflow-hidden rounded-xl border border-line/60 ${tone.bg}`}>
       <div className="flex">
         <div className={`w-1.5 shrink-0 ${tone.bar}`} />
-        <div className="min-w-0 flex-1 p-3">
+        <div className="min-w-0 flex-1 p-3 md:flex-none">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <span className={`font-display text-sm font-bold ${tone.text}`}>{label}</span>
             <span className="font-semibold text-text">{qk ? t(qk) : match.mode}</span>
@@ -240,7 +239,7 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
           )}
         </div>
 
-        <div className="hidden w-[23rem] shrink-0 self-center border-l border-line/40 px-3 py-2 md:block">
+        <div className="hidden w-[23rem] shrink-0 self-center border-l border-line/40 px-3 py-2 md:ml-auto md:block">
           {arena ? (
             <Pairs match={match} puuid={puuid} server={server} version={assets.version} />
           ) : (

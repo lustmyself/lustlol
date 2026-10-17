@@ -16,6 +16,10 @@ export interface PlayerGame {
   assists: number;
   cs: number;
   duration: number;
+  /** Added later; rows saved before then lack them. */
+  teamId?: number;
+  name?: string;
+  tag?: string;
 }
 
 let indexed = false;
@@ -24,6 +28,7 @@ async function collection() {
   if (coll && !indexed) {
     indexed = true;
     void coll.createIndex({ puuid: 1, createdAt: -1 }).catch(() => (indexed = false));
+    void coll.createIndex({ matchId: 1 }).catch(() => (indexed = false));
   }
   return coll;
 }
@@ -45,6 +50,9 @@ export async function indexMatch(m: MatchSummary): Promise<void> {
     assists: p.assists,
     cs: p.cs,
     duration: m.duration,
+    teamId: p.teamId,
+    name: p.name,
+    tag: p.tag,
   }));
 
   const coll = await collection();
@@ -82,6 +90,22 @@ export async function gamesSince(puuid: string, since: number, queues: number[])
   }
   return (await coll
     .find({ puuid, createdAt: { $gte: since }, queueId: { $in: queues } }, { projection: { _id: 0 } })
+    .toArray()
+    .catch(() => [])) as unknown as PlayerGame[];
+}
+
+/** Everyone else's rows from these matches. */
+export async function othersIn(puuid: string, matchIds: string[]): Promise<PlayerGame[]> {
+  if (matchIds.length === 0) return [];
+  const coll = await collection();
+  if (!coll) {
+    const ids = new Set(matchIds);
+    return [...memory.entries()]
+      .filter(([p]) => p !== puuid)
+      .flatMap(([, rows]) => [...rows.values()].filter((r) => ids.has(r.matchId)));
+  }
+  return (await coll
+    .find({ matchId: { $in: matchIds }, puuid: { $ne: puuid } }, { projection: { _id: 0 } })
     .toArray()
     .catch(() => [])) as unknown as PlayerGame[];
 }
