@@ -23,9 +23,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-screen">
         <I18nProvider locale={locale}>
           <Header version={version} />
-          <main className="mx-auto max-w-6xl px-4 pb-16">{children}</main>
+          <main className="mx-auto max-w-[1720px] px-4 pb-16">{children}</main>
           <footer className="border-t border-line/70">
-            <p className="mx-auto max-w-6xl px-4 py-6 text-xs leading-relaxed text-faint">{dict.footer_note}</p>
+            <p className="mx-auto max-w-[1720px] px-4 py-6 text-xs leading-relaxed text-faint">{dict.footer_note}</p>
           </footer>
         </I18nProvider>
       </body>

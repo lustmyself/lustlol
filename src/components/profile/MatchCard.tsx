@@ -88,8 +88,8 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
     <article className={`overflow-hidden rounded-xl border border-line/60 ${tone.bg}`}>
       <div className="flex">
         <div className={`w-1.5 shrink-0 ${tone.bar}`} />
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-3 p-3 sm:flex-nowrap">
-          <div className="w-24 shrink-0 text-xs leading-5">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-3 p-3">
+          <div className="w-28 shrink-0 text-xs leading-5">
             <p className={`font-semibold ${tone.text}`}>{qk ? t(qk) : match.mode}</p>
             <p className="text-faint" suppressHydrationWarning>
               {timeAgo(dict, match.endedAt)}
@@ -132,7 +132,7 @@ export function MatchCard({ match, puuid, server, assets }: { match: MatchSummar
 
           <Items items={me.items} version={assets.version} size={24} />
 
-          <div className="ml-auto hidden w-[13.5rem] shrink-0 grid-cols-2 gap-x-2 text-[11px] lg:grid">
+          <div className="ml-auto hidden w-[17rem] shrink-0 grid-cols-2 gap-x-3 text-[11px] md:grid">
             {teams.map((team, ti) => (
               <ul key={ti} className="min-w-0 space-y-px">
                 {team.map((p) => (

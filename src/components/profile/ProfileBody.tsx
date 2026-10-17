@@ -74,8 +74,8 @@ export function ProfileBody({
   const stats = useMemo(() => summarize(matches, puuid), [matches, puuid]);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-      <aside className="space-y-4">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <aside className="space-y-4 xl:col-start-2 xl:row-start-1">
         {sidebar}
 
         <SeasonChampions server={server} puuid={puuid} version={assets.version} names={assets.names} />
@@ -109,7 +109,7 @@ export function ProfileBody({
         )}
       </aside>
 
-      <section className="min-w-0 space-y-3">
+      <section className="min-w-0 space-y-3 xl:col-start-1 xl:row-start-1">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="mr-2 font-display text-lg font-semibold">{t("matches")}</h2>
           {FILTERS.map((q) => (

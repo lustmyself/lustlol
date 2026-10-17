@@ -30,7 +30,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const href = (s: string, q: RankedQueueKey) => `/leaderboard?server=${s}${q === "flex" ? "&queue=flex" : ""}`;
 
   return (
-    <div className="space-y-5 pt-8">
+    <div className="mx-auto max-w-6xl space-y-5 pt-8">
       <header>
         <h1 className="font-display text-3xl font-bold">{dict.leaderboard_title}</h1>
         <p className="mt-1 text-sm text-muted">{format(dict.leaderboard_sub, { s: server.name })}</p>

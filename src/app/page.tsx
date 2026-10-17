@@ -89,7 +89,7 @@ export default async function Home() {
   const [{ dict }, version] = await Promise.all([getDictionary(), latestVersion()]);
 
   return (
-    <>
+    <div className="mx-auto max-w-6xl">
       <section className="flex flex-col items-center pt-20 pb-16 text-center sm:pt-28">
         <p className="font-display text-xs font-semibold tracking-[0.3em] text-teal">LEAGUE OF LEGENDS</p>
         <h1 className="mt-4 max-w-3xl font-display text-4xl leading-tight font-bold sm:text-5xl">{dict.hero_title}</h1>
@@ -112,6 +112,6 @@ export default async function Home() {
           </Suspense>
         </section>
       </div>
-    </>
+    </div>
   );
 }

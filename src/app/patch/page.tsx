@@ -48,7 +48,7 @@ export default async function PatchPage() {
   if (!notes) return <p className="mt-16 text-center text-muted">{dict.patch_unavailable}</p>;
 
   return (
-    <div className="space-y-8 pt-8">
+    <div className="mx-auto max-w-6xl space-y-8 pt-8">
       <header>
         <p className="font-display text-sm font-semibold tracking-widest text-gold">PATCH {notes.version}</p>
         <h1 className="mt-1 font-display text-3xl font-bold">{dict.nav_patch}</h1>
